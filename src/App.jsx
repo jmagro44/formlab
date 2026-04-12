@@ -318,13 +318,62 @@ const css = `
     background: rgba(181,245,66,0.08); color: var(--accent); border: 1px solid rgba(181,245,66,0.2);
     margin-top: 3px;
   }
+  .ex-expand { margin-top: 10px; }
   .ex-cue {
-    display: none;
-    margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.65;
+    font-size: 12px; color: var(--muted); line-height: 1.65;
     padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 4px;
-    border-left: 2px solid var(--accent);
+    border-left: 2px solid var(--accent); margin-bottom: 12px;
   }
-  .ex-card.open .ex-cue { display: block; }
+
+  .ex-media-loading {
+    display: flex; gap: 5px; padding: 12px 0; justify-content: center;
+  }
+  .ex-loading-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+    animation: dotPulse 1.2s ease-in-out infinite;
+  }
+  .ex-loading-dot:nth-child(2) { animation-delay: 0.2s; }
+  .ex-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dotPulse {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+
+  .ex-media { margin-top: 4px; }
+  .ex-gif {
+    width: 100%; max-width: 320px; border-radius: 6px;
+    display: block; margin: 0 auto 14px;
+    border: 1px solid var(--border);
+  }
+  .ex-instructions {
+    padding-left: 18px; margin: 0 0 12px;
+  }
+  .ex-instructions li {
+    font-size: 12px; color: var(--muted); line-height: 1.65; margin-bottom: 5px;
+  }
+  .ex-muscles {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 6px; margin-top: 4px;
+  }
+  .ex-muscles-label {
+    font-family: 'DM Mono', monospace; font-size: 9px;
+    letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase;
+  }
+  .ex-muscle-tag {
+    font-family: 'DM Mono', monospace; font-size: 9px; padding: 2px 7px;
+    border-radius: 2px; background: rgba(66,245,200,0.07);
+    color: var(--accent2); border: 1px solid rgba(66,245,200,0.2);
+    text-transform: capitalize;
+  }
+  .ex-yt-link {
+    display: inline-block; margin-top: 4px;
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em;
+    color: var(--warm); text-decoration: none;
+    padding: 6px 12px; border: 1px solid rgba(245,167,66,0.25);
+    border-radius: 3px; background: rgba(245,167,66,0.06);
+    transition: all 0.15s;
+  }
+  .ex-yt-link:hover { background: rgba(245,167,66,0.12); border-color: rgba(245,167,66,0.4); }
 
   .ex-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
   .ex-sets { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); white-space: nowrap; }
@@ -462,15 +511,96 @@ function Chip({ label, selected, onClick, accent }) {
   );
 }
 
+async function fetchExerciseData(name) {
+  const res = await fetch(
+    `https://exercisedb.p.rapidapi.com/exercises/name/${encodeURIComponent(name.toLowerCase())}?limit=1&offset=0`,
+    {
+      headers: {
+        "X-RapidAPI-Key": import.meta.env.VITE_RAPIDAPI_KEY,
+        "X-RapidAPI-Host": "exercisedb.p.rapidapi.com",
+      },
+    }
+  );
+  const data = await res.json();
+  return Array.isArray(data) && data.length > 0 ? data[0] : null;
+}
+
 function ExCard({ ex, idx }) {
   const [open, setOpen] = useState(false);
+  const [exData, setExData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const fetched = useRef(false);
+
+  async function handleClick() {
+    if (!open && !fetched.current) {
+      fetched.current = true;
+      setLoading(true);
+      try {
+        const data = await fetchExerciseData(ex.name);
+        setExData(data);
+      } catch {
+        setExData(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setOpen(o => !o);
+  }
+
   return (
-    <div className={`ex-card${open ? " open" : ""}`} onClick={() => setOpen(!open)}>
+    <div className={`ex-card${open ? " open" : ""}`} onClick={handleClick}>
       <div className="ex-num">{String(idx + 1).padStart(2, "0")}</div>
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div className="ex-name">{ex.name}</div>
         {ex.tag && <span className="ex-tag">{ex.tag}</span>}
-        {open && <div className="ex-cue">{ex.cue}</div>}
+        {open && (
+          <div className="ex-expand">
+            <div className="ex-cue">{ex.cue}</div>
+            {loading && (
+              <div className="ex-media-loading">
+                <span className="ex-loading-dot" />
+                <span className="ex-loading-dot" />
+                <span className="ex-loading-dot" />
+              </div>
+            )}
+            {!loading && exData && (
+              <div className="ex-media">
+                <img
+                  src={exData.gifUrl}
+                  alt={ex.name}
+                  className="ex-gif"
+                  loading="lazy"
+                />
+                {exData.instructions?.length > 0 && (
+                  <ol className="ex-instructions">
+                    {exData.instructions.map((step, i) => (
+                      <li key={i}>{step}</li>
+                    ))}
+                  </ol>
+                )}
+                {exData.secondaryMuscles?.length > 0 && (
+                  <div className="ex-muscles">
+                    <span className="ex-muscles-label">Also works:</span>
+                    {exData.secondaryMuscles.map(m => (
+                      <span key={m} className="ex-muscle-tag">{m}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {!loading && !exData && (
+              <a
+                href={`https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name)}+form+tutorial`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ex-yt-link"
+                onClick={e => e.stopPropagation()}
+              >
+                ▶ Watch form tutorial on YouTube
+              </a>
+            )}
+          </div>
+        )}
       </div>
       <div className="ex-right">
         <div className="ex-sets">{ex.sets}</div>
