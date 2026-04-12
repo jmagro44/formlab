@@ -428,60 +428,24 @@ const css = `
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(profile) {
-  return `You are an expert personal trainer and exercise physiologist. You create safe, effective, science-backed workout programs.
+  return `You are an expert personal trainer. Respond with ONLY a valid JSON object — no markdown, no preamble.
 
-The user's profile:
-- Fitness level: ${profile.fitnessLevel}
-- Goals: ${profile.goals.join(", ")}
-- Available equipment: ${profile.equipment.join(", ")}
+User profile: ${profile.fitnessLevel} level | Goals: ${profile.goals.join(", ")} | Equipment: ${profile.equipment.join(", ")}
 
-You ALWAYS respond with ONLY a valid JSON object — no markdown fences, no preamble, no explanation outside the JSON.
-
-JSON schema:
-{
-  "title": string,
-  "tagline": string,
-  "duration": string,
-  "focusArea": string,
-  "sessionStyle": string,
-  "coachNote": string,
-  "phases": [
-    {
-      "phase": "Warm-Up" | "Main" | "Cool-Down",
-      "name": string,
-      "duration": string,
-      "exercises": [
-        {
-          "name": string,
-          "sets": string,
-          "equipment": string,
-          "tag": string,
-          "cue": string
-        }
-      ]
-    }
-  ]
-}
+JSON schema: {"title":string,"tagline":string,"duration":string,"focusArea":string,"sessionStyle":string,"coachNote":string,"phases":[{"phase":"Warm-Up"|"Main"|"Cool-Down","name":string,"duration":string,"exercises":[{"name":string,"sets":string,"equipment":string,"tag":string,"cue":string}]}]}
 
 Rules:
-- Only use equipment the user has listed. If they say "bodyweight only", no equipment.
-- Respect any injuries or limitations mentioned — modify or exclude exercises accordingly.
-- Match volume and intensity to the fitness level.
-- The "tag" field is 2-3 words max describing the primary muscle/benefit (e.g. "GLUTE + HIP", "VMO FOCUS").
-- The "cue" field should be 2-4 sentences: technique tip + why it matters.
-- "coachNote" is a 1-2 sentence note from the trainer about this specific session, personalized to their goals and any session preferences.
-- Make the workout genuinely good. Real exercise names, correct sets/reps, smart sequencing.`;
+- Only use listed equipment. Bodyweight only = no equipment.
+- Respect injuries/limitations mentioned.
+- Match intensity to fitness level.
+- "tag": 2-3 words, primary muscle/benefit (e.g. "GLUTE + HIP").
+- "cue": 1 concise sentence — the single most important technique tip.
+- "coachNote": 1 sentence personalized to their goals and session.
+- Real exercise names, correct sets/reps, smart sequencing.`;
 }
 
 function buildUserPrompt(profile, session) {
-  return `Build me a ${session.duration} ${session.focus} workout.
-Session style: ${session.style}
-${session.notes ? `Additional notes / injuries / preferences: ${session.notes}` : ""}
-My goals are: ${profile.goals.join(", ")}
-My fitness level: ${profile.fitnessLevel}
-Available equipment: ${profile.equipment.join(", ")}
-
-Return ONLY the JSON object.`;
+  return `Build a ${session.duration} ${session.focus} workout. Style: ${session.style}.${session.notes ? ` Notes: ${session.notes}` : ""} Return ONLY the JSON object.`;
 }
 
 // ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
