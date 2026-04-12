@@ -1,0 +1,991 @@
+import { useState, useEffect, useRef } from "react";
+
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+
+const EQUIPMENT_OPTIONS = [
+  { id: "barbell", label: "Barbell" },
+  { id: "kettlebells", label: "Kettlebells" },
+  { id: "dumbbells", label: "Dumbbells" },
+  { id: "bands", label: "Resistance Bands" },
+  { id: "pullup_bar", label: "Pull-up Bar" },
+  { id: "cable_machine", label: "Cable Machine" },
+  { id: "trx", label: "TRX / Suspension" },
+  { id: "bench", label: "Bench" },
+  { id: "box", label: "Plyo Box" },
+  { id: "bodyweight", label: "Bodyweight Only" },
+];
+
+const FOCUS_OPTIONS = [
+  "Full Body", "Lower Body", "Upper Body", "Core", "Glutes & Hips",
+  "Knee Strength", "Shoulder Health", "Mobility", "Cardio", "Power",
+];
+
+const FITNESS_LEVELS = ["Beginner", "Intermediate", "Advanced", "Athlete"];
+
+const GOALS = [
+  "Build Strength", "Lose Weight", "Improve Mobility", "Injury Recovery",
+  "Athletic Performance", "General Fitness", "Muscle Gain", "Endurance",
+];
+
+const SESSION_STYLES = [
+  "Circuit Training", "Straight Sets", "Supersets", "EMOM", "AMRAP", "Mixed / Surprise me",
+];
+
+const DURATIONS = ["15 min", "20 min", "30 min", "45 min", "60 min"];
+
+// ─── STYLES ───────────────────────────────────────────────────────────────────
+
+const css = `
+  :root {
+    --bg: #0d0f0e;
+    --surface: #161918;
+    --card: #1c1f1e;
+    --border: #2a2f2d;
+    --text: #e8ede9;
+    --ink2: #a8b4aa;
+    --muted: #6b7570;
+    --accent: #b5f542;
+    --accent2: #42f5c8;
+    --warm: #f5a742;
+    --radius: 5px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 0 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+  .nav-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 0.12em;
+    color: var(--text);
+  }
+  .nav-logo span { color: var(--accent); }
+  .nav-profile {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: all 0.15s;
+    background: transparent;
+    letter-spacing: 0.05em;
+  }
+  .nav-profile:hover { background: var(--surface); color: var(--text); border-color: var(--muted); }
+
+  .page-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(52px, 12vw, 80px);
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+  .page-title .green { color: var(--accent); }
+  .page-title .teal  { color: var(--accent2); }
+  .page-subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.65;
+    max-width: 420px;
+    margin-bottom: 36px;
+  }
+
+  .steps { display: flex; gap: 6px; margin-bottom: 36px; }
+  .step-dot {
+    height: 2px; flex: 1; border-radius: 2px;
+    background: var(--border); transition: background 0.3s;
+  }
+  .step-dot.active { background: var(--accent); }
+  .step-dot.done   { background: var(--muted); }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .field { margin-bottom: 28px; }
+  .field-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+  .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 7px 14px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+  }
+  .chip:hover { border-color: var(--text); color: var(--text); }
+  .chip.selected {
+    background: rgba(181,245,66,0.12);
+    border-color: rgba(181,245,66,0.45);
+    color: var(--accent);
+  }
+
+  .duration-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .dur-btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.06em;
+    padding: 9px 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .dur-btn:hover { border-color: var(--text); color: var(--text); }
+  .dur-btn.selected {
+    background: rgba(181,245,66,0.12);
+    border-color: rgba(181,245,66,0.45);
+    color: var(--accent);
+  }
+
+  .text-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    resize: vertical;
+    min-height: 88px;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .text-input:focus { border-color: rgba(181,245,66,0.4); }
+  .text-input::placeholder { color: var(--muted); }
+
+  .btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 19px;
+    letter-spacing: 0.12em;
+    padding: 13px 32px;
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #0d0f0e; width: 100%; }
+  .btn-primary:hover { background: #c8f55a; }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    font-size: 16px;
+    padding: 11px 22px;
+  }
+  .btn-secondary:hover { color: var(--text); border-color: var(--muted); }
+  .btn-row { display: flex; gap: 10px; margin-top: 32px; }
+  .btn-row .btn-primary { flex: 1; }
+
+  .profile-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+  .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 4px; }
+  .profile-item-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  .profile-item-value { font-size: 13px; color: var(--text); line-height: 1.5; }
+
+  .generating {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 340px; gap: 18px; text-align: center;
+  }
+  .fl-tile-wrap {
+    width: 160px;
+    animation: tilePulse 1.8s ease-in-out infinite;
+  }
+  .fl-tile-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  @keyframes tilePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(0.96); }
+  }
+  .gen-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; letter-spacing: 0.18em; color: var(--accent); text-transform: uppercase;
+    margin-top: 8px;
+  }
+  .gen-status { font-size: 13px; color: var(--muted); max-width: 300px; line-height: 1.65; text-align: center; }
+
+  .workout-header { margin-bottom: 32px; }
+  .workout-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .meta-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; padding: 4px 10px; border-radius: 3px;
+    border: 1px solid var(--border); color: var(--muted); letter-spacing: 0.06em;
+  }
+  .meta-badge.green { border-color: rgba(181,245,66,0.3); background: rgba(181,245,66,0.07); color: var(--accent); }
+  .meta-badge.teal  { border-color: rgba(66,245,200,0.3); background: rgba(66,245,200,0.07); color: var(--accent2); }
+
+  .phase-block { margin-bottom: 36px; }
+  .phase-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .phase-tag {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px; letter-spacing: 0.1em; padding: 3px 10px; border-radius: 3px;
+  }
+  .tag-warmup { background: rgba(245,167,66,0.12); color: var(--warm); border: 1px solid rgba(245,167,66,0.25); }
+  .tag-main   { background: rgba(181,245,66,0.10); color: var(--accent); border: 1px solid rgba(181,245,66,0.25); }
+  .tag-cool   { background: rgba(66,245,200,0.10); color: var(--accent2); border: 1px solid rgba(66,245,200,0.25); }
+  .phase-name { font-family: 'Bebas Neue', sans-serif; font-size: 21px; letter-spacing: 0.04em; color: var(--text); }
+  .phase-time { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  .ex-list { display: flex; flex-direction: column; gap: 8px; }
+  .ex-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 26px 1fr auto;
+    gap: 0 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .ex-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: transparent; transition: background 0.2s;
+  }
+  .ex-card:hover { border-color: rgba(181,245,66,0.3); }
+  .ex-card:hover::before { background: var(--accent); }
+  .ex-card.open { background: #1f2321; }
+  .ex-card.open::before { background: var(--accent); }
+
+  .ex-num { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); padding-top: 2px; }
+  .ex-name { font-size: 14px; font-weight: 500; margin-bottom: 3px; color: var(--text); }
+  .ex-tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; letter-spacing: 0.1em; padding: 2px 7px; border-radius: 2px;
+    background: rgba(181,245,66,0.08); color: var(--accent); border: 1px solid rgba(181,245,66,0.2);
+    margin-top: 3px;
+  }
+  .ex-cue {
+    display: none;
+    margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.65;
+    padding: 10px 12px; background: rgba(255,255,255,0.03); border-radius: 4px;
+    border-left: 2px solid var(--accent);
+  }
+  .ex-card.open .ex-cue { display: block; }
+
+  .ex-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  .ex-sets { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); white-space: nowrap; }
+  .ex-equip { font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .ex-chevron { font-size: 9px; color: var(--muted); margin-top: 4px; transition: transform 0.2s; }
+  .ex-card.open .ex-chevron { transform: rotate(180deg); }
+
+  .timer-bar {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 24px; margin: 28px 0;
+    display: flex; align-items: center; gap: 20px;
+  }
+  .timer-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px; color: var(--accent); line-height: 1; min-width: 96px; letter-spacing: 0.04em;
+  }
+  .timer-info { flex: 1; }
+  .timer-btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 17px; letter-spacing: 0.1em; padding: 10px 22px;
+    border-radius: var(--radius); border: 1px solid var(--border);
+    background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .timer-btn:hover { color: var(--text); border-color: var(--muted); }
+  .timer-btn.active { background: var(--accent); border-color: var(--accent); color: #0d0f0e; }
+
+  .coach-note {
+    background: linear-gradient(135deg, rgba(181,245,66,0.06), rgba(66,245,200,0.04));
+    border: 1px solid rgba(181,245,66,0.18);
+    border-radius: var(--radius); padding: 14px 16px;
+    font-size: 13px; color: var(--muted); line-height: 1.65; margin-bottom: 16px;
+  }
+  .coach-note strong { color: var(--accent); }
+
+  .error-box {
+    background: rgba(245,167,66,0.08); border: 1px solid rgba(245,167,66,0.25);
+    border-radius: var(--radius); padding: 14px 16px;
+    font-size: 13px; color: var(--warm); margin-top: 16px;
+  }
+
+  .fade-in { animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  /* SPLASH MODAL */
+  .splash-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(13,15,14,0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    animation: fadeIn 0.25s ease both;
+  }
+  .splash-modal {
+    background: #1c1f1e;
+    border: 1px solid #2a2f2d;
+    border-radius: 10px;
+    padding: 40px 36px 32px;
+    width: 340px;
+    max-width: 88vw;
+    position: relative;
+    text-align: center;
+    animation: popIn 0.35s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.92) translateY(10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .splash-close {
+    position: absolute;
+    top: 14px; right: 16px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+    transition: color 0.15s;
+  }
+  .splash-close:hover { color: var(--text); }
+  .splash-divider {
+    width: 40px; height: 1px;
+    background: var(--border);
+    margin: 0 auto 24px;
+  }
+
+  .mt-8 { margin-top: 8px; }
+  .mt-16 { margin-top: 16px; }
+
+  .app {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 20px 80px;
+    min-height: 100vh;
+  }
+`;
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+function buildSystemPrompt(profile) {
+  return `You are an expert personal trainer and exercise physiologist. You create safe, effective, science-backed workout programs.
+
+The user's profile:
+- Fitness level: ${profile.fitnessLevel}
+- Goals: ${profile.goals.join(", ")}
+- Available equipment: ${profile.equipment.join(", ")}
+
+You ALWAYS respond with ONLY a valid JSON object — no markdown fences, no preamble, no explanation outside the JSON.
+
+JSON schema:
+{
+  "title": string,
+  "tagline": string,
+  "duration": string,
+  "focusArea": string,
+  "sessionStyle": string,
+  "coachNote": string,
+  "phases": [
+    {
+      "phase": "Warm-Up" | "Main" | "Cool-Down",
+      "name": string,
+      "duration": string,
+      "exercises": [
+        {
+          "name": string,
+          "sets": string,
+          "equipment": string,
+          "tag": string,
+          "cue": string
+        }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Only use equipment the user has listed. If they say "bodyweight only", no equipment.
+- Respect any injuries or limitations mentioned — modify or exclude exercises accordingly.
+- Match volume and intensity to the fitness level.
+- The "tag" field is 2-3 words max describing the primary muscle/benefit (e.g. "GLUTE + HIP", "VMO FOCUS").
+- The "cue" field should be 2-4 sentences: technique tip + why it matters.
+- "coachNote" is a 1-2 sentence note from the trainer about this specific session, personalized to their goals and any session preferences.
+- Make the workout genuinely good. Real exercise names, correct sets/reps, smart sequencing.`;
+}
+
+function buildUserPrompt(profile, session) {
+  return `Build me a ${session.duration} ${session.focus} workout.
+Session style: ${session.style}
+${session.notes ? `Additional notes / injuries / preferences: ${session.notes}` : ""}
+My goals are: ${profile.goals.join(", ")}
+My fitness level: ${profile.fitnessLevel}
+Available equipment: ${profile.equipment.join(", ")}
+
+Return ONLY the JSON object.`;
+}
+
+// ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
+
+function Chip({ label, selected, onClick, accent }) {
+  return (
+    <button
+      className={`chip${selected ? " selected" + (accent ? " accent" : "") : ""}`}
+      onClick={onClick}
+      type="button"
+    >
+      {label}
+    </button>
+  );
+}
+
+function ExCard({ ex, idx }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`ex-card${open ? " open" : ""}`} onClick={() => setOpen(!open)}>
+      <div className="ex-num">{String(idx + 1).padStart(2, "0")}</div>
+      <div>
+        <div className="ex-name">{ex.name}</div>
+        {ex.tag && <span className="ex-tag">{ex.tag}</span>}
+        {open && <div className="ex-cue">{ex.cue}</div>}
+      </div>
+      <div className="ex-right">
+        <div className="ex-sets">{ex.sets}</div>
+        <div className="ex-equip">{ex.equipment}</div>
+        <div className="ex-chevron">▼</div>
+      </div>
+    </div>
+  );
+}
+
+function WorkoutView({ workout, sessionDuration, onReset }) {
+  const [timerActive, setTimerActive] = useState(false);
+  const [seconds, setSeconds] = useState(parseInt(sessionDuration) * 60 || 20 * 60);
+  const [elapsed, setElapsed] = useState(0);
+  const total = parseInt(sessionDuration) * 60 || 20 * 60;
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (timerActive) {
+      intervalRef.current = setInterval(() => {
+        setSeconds(s => {
+          if (s <= 1) { clearInterval(intervalRef.current); setTimerActive(false); return 0; }
+          return s - 1;
+        });
+        setElapsed(e => e + 1);
+      }, 1000);
+    } else {
+      clearInterval(intervalRef.current);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [timerActive]);
+
+  const pad = n => String(n).padStart(2, "0");
+  const fmt = s => `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+  const pct = (elapsed / total) * 100;
+
+  const phaseTagClass = p => p === "Warm-Up" ? "tag-warmup" : p === "Cool-Down" ? "tag-cool" : "tag-main";
+
+  return (
+    <div className="fade-in">
+      <div className="workout-header">
+        <div className="section-label">Your Session</div>
+        <div className="page-title">{workout.title || "YOUR WORKOUT"}</div>
+        {workout.tagline && <div className="page-subtitle">{workout.tagline}</div>}
+        {workout.coachNote && (
+          <div className="coach-note">
+            <strong>Coach: </strong>
+            {workout.coachNote}
+          </div>
+        )}
+        <div className="workout-meta">
+          <span className="meta-badge green">⏱ {workout.duration || sessionDuration}</span>
+          <span className="meta-badge">{workout.focusArea}</span>
+          <span className="meta-badge teal">{workout.sessionStyle}</span>
+        </div>
+      </div>
+
+      {/* TIMER */}
+      <div className="timer-bar">
+        <div className="timer-num" style={{ color: seconds < 60 ? "var(--warm)" : timerActive ? "var(--accent2)" : "var(--accent)" }}>
+          {fmt(seconds)}
+        </div>
+        <div className="timer-info">
+          <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "'DM Mono', monospace", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            {timerActive ? "Session in progress" : seconds === total ? "Ready to start" : "Paused"}
+          </div>
+          <div style={{ marginTop: "8px", height: "2px", background: "var(--border)", borderRadius: "2px", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent2)", transition: "width 1s linear", borderRadius: "2px" }} />
+          </div>
+        </div>
+        <button
+          className={`timer-btn${timerActive ? " active" : ""}`}
+          onClick={() => setTimerActive(a => !a)}
+        >
+          {timerActive ? "Pause" : seconds === total ? "Start" : "Resume"}
+        </button>
+      </div>
+
+      {/* PHASES */}
+      {workout.phases?.map((phase, pi) => (
+        <div className="phase-block" key={pi}>
+          <div className="section-label">Block {String(pi + 1).padStart(2, "0")}</div>
+          <div className="phase-header">
+            <span className={`phase-tag ${phaseTagClass(phase.phase)}`}>{phase.phase}</span>
+            <span className="phase-name">{phase.name}</span>
+            <span className="phase-time">{phase.duration}</span>
+          </div>
+          <div className="ex-list">
+            {phase.exercises?.map((ex, ei) => (
+              <ExCard key={ei} ex={ex} idx={ei} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div className="btn-row" style={{ marginTop: "40px", borderTop: "1px solid var(--border)", paddingTop: "32px" }}>
+        <button className="btn btn-secondary" onClick={onReset}>New Session</button>
+        <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+          Back to Top
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+
+export default function TrainerApp() {
+  // VIEW: "welcome" | "onboarding_1" | "onboarding_2" | "onboarding_3" | "splash" | "session" | "generating" | "workout"
+  const [view, setView] = useState("welcome");
+  const [profile, setProfile] = useState({
+    name: "",
+    fitnessLevel: "",
+    equipment: [],
+    goals: [],
+  });
+  const [session, setSession] = useState({
+    duration: "20 min",
+    focus: "",
+    style: "Mixed / Surprise me",
+    notes: "",
+  });
+  const [workout, setWorkout] = useState(null);
+  const [error, setError] = useState("");
+
+  const toggleArr = (arr, val) =>
+    arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
+
+  const sessionComplete = session.duration && session.focus;
+
+  async function generateWorkout() {
+    setView("generating");
+    setError("");
+    try {
+      const res = await fetch("/api/workout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system: buildSystemPrompt(profile),
+          messages: [{ role: "user", content: buildUserPrompt(profile, session) }],
+        }),
+      });
+      const data = await res.json();
+      const raw = data.content?.find(b => b.type === "text")?.text || "";
+      const clean = raw.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      setWorkout(parsed);
+      setView("workout");
+    } catch (e) {
+      setError("Couldn't generate your workout. Check your connection and try again.");
+      setView("session");
+    }
+  }
+
+  // ── RENDER ──
+
+  return (
+    <>
+      <style>{css}</style>
+      <div className="app">
+        <nav className="nav">
+          <div className="nav-logo">Form<span>Lab</span></div>
+          {view !== "welcome" && view !== "onboarding_1" && view !== "onboarding_2" && view !== "onboarding_3" && (
+            <button className="nav-profile" onClick={() => setView("onboarding_1")}>
+              Edit Profile
+            </button>
+          )}
+        </nav>
+
+        {/* ── WELCOME ── */}
+        {view === "welcome" && (
+          <div className="fade-in">
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "36px", marginTop: "8px" }}>
+              <svg viewBox="0 0 250 350" xmlns="http://www.w3.org/2000/svg" style={{ width: "130px", height: "auto", display: "block" }}>
+                <rect x="0" y="0" width="250" height="350" rx="6" fill="#1c1f1e" stroke="#b5f542" strokeWidth="2.5"/>
+                <rect x="9" y="9" width="232" height="332" rx="3" fill="none" stroke="#2a2f2d" strokeWidth="1"/>
+                <circle cx="16" cy="16" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="234" cy="16" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="16" cy="334" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="234" cy="334" r="3" fill="#b5f542" opacity="0.3"/>
+                <text x="20" y="42" fontFamily="'Arial Black',Arial,sans-serif" fontSize="22" fontWeight="900" fill="#6b7570" textAnchor="start">315</text>
+                <text x="105" y="228" textAnchor="middle" fontFamily="'Arial Narrow','Helvetica Neue',Arial,sans-serif" fontSize="148" fontWeight="700" fill="#b5f542">F</text>
+                <text x="170" y="228" textAnchor="middle" fontFamily="'Arial Narrow','Helvetica Neue',Arial,sans-serif" fontSize="82" fontWeight="700" fill="#ffffff">L</text>
+                <line x1="18" y1="258" x2="232" y2="258" stroke="#2a2f2d" strokeWidth="1"/>
+                <text x="125" y="292" textAnchor="middle" fontFamily="'DM Mono','Courier New',monospace" fontSize="16" fontWeight="400" fill="#a8b4aa" letterSpacing="3">Formlab</text>
+                <text x="125" y="320" textAnchor="middle" fontFamily="'DM Mono','Courier New',monospace" fontSize="16" fontWeight="500" fill="#6b7570" letterSpacing="1">2026.0</text>
+              </svg>
+            </div>
+
+            <div className="page-title">WELCOME<br />TO<br /><span className="green">FORMLAB.</span></div>
+
+            <div style={{ marginBottom: "32px", marginTop: "4px" }}>
+              <p style={{ fontSize: "15px", color: "var(--text)", lineHeight: "1.75", marginBottom: "16px" }}>
+                Congrats on taking the first step — that's always the hardest one, and you just cleared it.
+              </p>
+              <p style={{ fontSize: "14px", color: "var(--muted)", lineHeight: "1.75", marginBottom: "16px" }}>
+                You're kicking off something real here. Whether you're chasing strength, bouncing back from an injury, or just showing up consistently — we're going to build sessions around exactly what you need.
+              </p>
+              <p style={{ fontSize: "14px", color: "var(--muted)", lineHeight: "1.75" }}>
+                We're honored you chose to train with us. Let's get to work.
+              </p>
+            </div>
+
+            <div style={{
+              background: "linear-gradient(135deg, rgba(181,245,66,0.06), rgba(66,245,200,0.04))",
+              border: "1px solid rgba(181,245,66,0.18)",
+              borderRadius: "var(--radius)",
+              padding: "16px 18px",
+              marginBottom: "36px",
+              display: "flex",
+              gap: "14px",
+              alignItems: "flex-start",
+            }}>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "28px", color: "var(--accent)", lineHeight: "1", paddingTop: "2px", minWidth: "28px" }}>✦</div>
+              <div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.15em", color: "var(--accent)", textTransform: "uppercase", marginBottom: "6px" }}>How it works</div>
+                <div style={{ fontSize: "13px", color: "var(--muted)", lineHeight: "1.65" }}>
+                  Build your profile once, then tell your trainer what you need before each session — duration, focus, how your body feels that day. We'll handle the rest.
+                </div>
+              </div>
+            </div>
+
+            <button className="btn btn-primary" onClick={() => setView("onboarding_1")}>
+              Build My Profile →
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP 1: Fitness Level ── */}
+        {view === "onboarding_1" && (
+          <div className="fade-in">
+            <div className="steps">
+              <div className="step-dot active" />
+              <div className="step-dot" />
+              <div className="step-dot" />
+            </div>
+            <div className="page-title">LET'S<br /><span className="green">BUILD</span><br />YOUR PROFILE</div>
+            <div className="page-subtitle">Quick setup so your trainer knows how to program for you.</div>
+
+            <div className="section-label">Step 01 — Fitness Level</div>
+            <div className="field">
+              <div className="chip-grid">
+                {FITNESS_LEVELS.map(l => (
+                  <Chip key={l} label={l} selected={profile.fitnessLevel === l}
+                    onClick={() => setProfile(p => ({ ...p, fitnessLevel: l }))} />
+                ))}
+              </div>
+            </div>
+
+            <div className="section-label">Your Goals</div>
+            <div className="field">
+              <div className="chip-grid">
+                {GOALS.map(g => (
+                  <Chip key={g} label={g} selected={profile.goals.includes(g)}
+                    onClick={() => setProfile(p => ({ ...p, goals: toggleArr(p.goals, g) }))} />
+                ))}
+              </div>
+              <div className="field-hint">Pick everything that applies.</div>
+            </div>
+
+            <button
+              className="btn btn-primary"
+              disabled={!profile.fitnessLevel || profile.goals.length === 0}
+              onClick={() => setView("onboarding_2")}
+            >
+              Continue →
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP 2: Equipment ── */}
+        {view === "onboarding_2" && (
+          <div className="fade-in">
+            <div className="steps">
+              <div className="step-dot done" />
+              <div className="step-dot active" />
+              <div className="step-dot" />
+            </div>
+            <div className="page-title">YOUR<br /><span className="green">GEAR</span></div>
+            <div className="page-subtitle">Only exercises using what you actually have. No "just grab a barbell" moments.</div>
+
+            <div className="section-label">Step 02 — Available Equipment</div>
+            <div className="field">
+              <div className="chip-grid">
+                {EQUIPMENT_OPTIONS.map(e => (
+                  <Chip key={e.id} label={e.label} selected={profile.equipment.includes(e.label)}
+                    onClick={() => setProfile(p => ({ ...p, equipment: toggleArr(p.equipment, e.label) }))} />
+                ))}
+              </div>
+            </div>
+
+            <div className="btn-row">
+              <button className="btn btn-secondary" onClick={() => setView("onboarding_1")}>Back</button>
+              <button
+                className="btn btn-primary"
+                disabled={profile.equipment.length === 0}
+                onClick={() => setView("onboarding_3")}
+              >
+                Continue →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 3: Confirm ── */}
+        {view === "onboarding_3" && (
+          <div className="fade-in">
+            <div className="steps">
+              <div className="step-dot done" />
+              <div className="step-dot done" />
+              <div className="step-dot active" />
+            </div>
+            <div className="page-title">LOOKS<br /><span className="green">GOOD.</span></div>
+            <div className="page-subtitle">Here's your profile. You can always edit it later.</div>
+
+            <div className="section-label">Your Profile</div>
+            <div className="profile-card">
+              <div className="profile-grid">
+                <div className="profile-item">
+                  <div className="profile-item-label">Fitness Level</div>
+                  <div className="profile-item-value">{profile.fitnessLevel}</div>
+                </div>
+                <div className="profile-item">
+                  <div className="profile-item-label">Goals</div>
+                  <div className="profile-item-value">{profile.goals.join(", ")}</div>
+                </div>
+                <div className="profile-item" style={{ gridColumn: "1 / -1" }}>
+                  <div className="profile-item-label">Equipment</div>
+                  <div className="profile-item-value">{profile.equipment.join(", ")}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="btn-row">
+              <button className="btn btn-secondary" onClick={() => setView("onboarding_2")}>Back</button>
+              <button className="btn btn-primary" onClick={() => setView("splash")}>
+                Start Training →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── SPLASH MODAL ── */}
+        {view === "splash" && (
+          <div className="splash-overlay">
+            <div className="splash-modal">
+              <button className="splash-close" onClick={() => setView("session")}>&#x2715;</button>
+
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "12px", letterSpacing: "0.22em", color: "var(--accent)", textTransform: "uppercase", marginBottom: "20px" }}>
+                FormLab
+              </div>
+
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "50px", letterSpacing: "0.04em", color: "var(--text)", lineHeight: "1", marginBottom: "4px" }}>
+                Lace up!
+              </div>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "50px", letterSpacing: "0.04em", color: "var(--accent)", lineHeight: "1", marginBottom: "24px" }}>
+                It's go time.
+              </div>
+
+              <div className="splash-divider" />
+
+              <p style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px", color: "var(--muted)", lineHeight: "1.7", margin: "0 0 32px", letterSpacing: "0.02em" }}>
+                Your trainer is ready — let's build your first session.
+              </p>
+
+              <button
+                className="btn btn-primary"
+                onClick={() => setView("session")}
+                style={{ fontSize: "20px", letterSpacing: "0.14em" }}
+              >
+                Let's Go
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── SESSION CHECK-IN ── */}
+        {view === "session" && (
+          <div className="fade-in">
+            <div className="page-title">TODAY'S<br /><span className="green">SESSION</span></div>
+            <div className="page-subtitle">Tell your trainer what you need today.</div>
+
+            <div className="section-label">Duration</div>
+            <div className="field">
+              <div className="duration-row">
+                {DURATIONS.map(d => (
+                  <button
+                    key={d}
+                    className={`dur-btn${session.duration === d ? " selected" : ""}`}
+                    onClick={() => setSession(s => ({ ...s, duration: d }))}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="section-label">Focus Area</div>
+            <div className="field">
+              <div className="chip-grid">
+                {FOCUS_OPTIONS.map(f => (
+                  <Chip key={f} label={f} selected={session.focus === f}
+                    onClick={() => setSession(s => ({ ...s, focus: f }))} />
+                ))}
+              </div>
+            </div>
+
+            <div className="section-label">Session Style</div>
+            <div className="field">
+              <div className="chip-grid">
+                {SESSION_STYLES.map(st => (
+                  <Chip key={st} label={st} selected={session.style === st}
+                    onClick={() => setSession(s => ({ ...s, style: st }))} />
+                ))}
+              </div>
+            </div>
+
+            <div className="section-label">Anything Else? (Optional)</div>
+            <div className="field">
+              <textarea
+                className="text-input"
+                placeholder="e.g. Left knee has been sore this week. Skip deep squats. Feeling low energy — keep it moderate."
+                value={session.notes}
+                onChange={e => setSession(s => ({ ...s, notes: e.target.value }))}
+              />
+              <div className="field-hint">Injuries, energy level, specific requests — your trainer reads this.</div>
+            </div>
+
+            {error && <div className="error-box">{error}</div>}
+
+            <button
+              className="btn btn-primary"
+              style={{ marginTop: "8px" }}
+              disabled={!sessionComplete}
+              onClick={generateWorkout}
+            >
+              Build My Workout →
+            </button>
+          </div>
+        )}
+
+        {/* ── GENERATING ── */}
+        {view === "generating" && (
+          <div className="generating fade-in">
+            <div className="fl-tile-wrap">
+              <svg viewBox="0 0 250 350" xmlns="http://www.w3.org/2000/svg" className="fl-tile-svg">
+                <rect x="0" y="0" width="250" height="350" rx="6" fill="#1c1f1e" stroke="#b5f542" strokeWidth="2.5"/>
+                <rect x="9" y="9" width="232" height="332" rx="3" fill="none" stroke="#2a2f2d" strokeWidth="1"/>
+                <circle cx="16" cy="16" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="234" cy="16" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="16" cy="334" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="234" cy="334" r="3" fill="#b5f542" opacity="0.3"/>
+                <text x="20" y="42" fontFamily="'Arial Black',Arial,sans-serif" fontSize="22" fontWeight="900" fill="#6b7570" textAnchor="start">315</text>
+                <text x="105" y="228" textAnchor="middle" fontFamily="'Arial Narrow','Helvetica Neue',Arial,sans-serif" fontSize="148" fontWeight="700" fill="#b5f542">F</text>
+                <text x="170" y="228" textAnchor="middle" fontFamily="'Arial Narrow','Helvetica Neue',Arial,sans-serif" fontSize="82" fontWeight="700" fill="#ffffff">L</text>
+                <line x1="18" y1="258" x2="232" y2="258" stroke="#2a2f2d" strokeWidth="1"/>
+                <text x="125" y="292" textAnchor="middle" fontFamily="'DM Mono','Courier New',monospace" fontSize="16" fontWeight="400" fill="#a8b4aa" letterSpacing="3">Formlab</text>
+                <text x="125" y="320" textAnchor="middle" fontFamily="'DM Mono','Courier New',monospace" fontSize="16" fontWeight="500" fill="#6b7570" letterSpacing="1">2026.0</text>
+              </svg>
+            </div>
+            <div className="gen-label">Building your session</div>
+            <div className="gen-status">
+              Designing a {session.duration} {session.focus} workout for your {profile.fitnessLevel.toLowerCase()} level and available gear…
+            </div>
+          </div>
+        )}
+
+        {/* ── WORKOUT OUTPUT ── */}
+        {view === "workout" && workout && (
+          <WorkoutView
+            workout={workout}
+            sessionDuration={session.duration}
+            onReset={() => {
+              setSession(s => ({ ...s, notes: "", focus: "", style: "Mixed / Surprise me" }));
+              setView("session");
+            }}
+          />
+        )}
+      </div>
+    </>
+  );
+}

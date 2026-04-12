@@ -1,0 +1,3 @@
+/* Global resets — design tokens and styles are managed in App.jsx */
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
