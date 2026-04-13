@@ -913,8 +913,13 @@ export default function TrainerApp() {
         setAuthLoading(false);
       }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, supaSession) => {
-      if (!supaSession) { setUser(null); setIsAdmin(false); setView("auth"); }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, supaSession) => {
+      if (event === "SIGNED_IN" && supaSession?.user) {
+        setUser(supaSession.user);
+        loadProfile(supaSession.user);
+      } else if (event === "SIGNED_OUT" || !supaSession) {
+        setUser(null); setIsAdmin(false); setView("auth");
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -947,8 +952,9 @@ export default function TrainerApp() {
     setAuthSubmitting(true); setAuthError("");
     const { error: signUpError } = await supabase.auth.signUp({ email, password });
     if (signUpError) { setAuthError(signUpError.message); setAuthSubmitting(false); return; }
-    const { data: { session: supaSession } } = await supabase.auth.getSession();
-    if (supaSession?.user) { setUser(supaSession.user); loadProfile(supaSession.user); }
+    // Email confirmation required — show check-email screen
+    // onAuthStateChange SIGNED_IN will fire automatically when they click the link
+    setAuthMode("check_email");
     setAuthSubmitting(false);
   }
 
@@ -1103,22 +1109,40 @@ export default function TrainerApp() {
               </svg>
             </div>
             <div className="auth-card">
-              <div className="section-label">{authMode === "login" ? "Sign In" : "Create Account"}</div>
-              <div className="page-title" style={{ fontSize: "clamp(36px,8vw,52px)", marginBottom: "24px" }}>
-                {authMode === "login" ? <><span className="green">WELCOME</span><br />BACK.</> : <>LET'S<br /><span className="green">BEGIN.</span></>}
-              </div>
-              {authError && <div className="auth-error">{authError}</div>}
-              <AuthForm
-                mode={authMode}
-                onSubmit={authMode === "login" ? handleLogin : handleSignUp}
-                submitting={authSubmitting}
-              />
-              <div className="auth-toggle">
-                {authMode === "login" ? "Don't have an account?" : "Already have an account?"}
-                <button onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}>
-                  {authMode === "login" ? "Sign up" : "Sign in"}
-                </button>
-              </div>
+              {authMode === "check_email" ? (
+                <>
+                  <div className="section-label">Check your inbox</div>
+                  <div className="page-title" style={{ fontSize: "clamp(36px,8vw,52px)", marginBottom: "16px" }}>
+                    ONE MORE<br /><span className="green">STEP.</span>
+                  </div>
+                  <p style={{ fontSize: "14px", color: "var(--muted)", lineHeight: "1.7", marginBottom: "24px" }}>
+                    We sent a confirmation link to your email. Click it to activate your account — this tab will update automatically.
+                  </p>
+                  <div className="auth-toggle" style={{ marginTop: 0 }}>
+                    Wrong email?
+                    <button onClick={() => { setAuthMode("signup"); setAuthError(""); }}>Start over</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="section-label">{authMode === "login" ? "Sign In" : "Create Account"}</div>
+                  <div className="page-title" style={{ fontSize: "clamp(36px,8vw,52px)", marginBottom: "24px" }}>
+                    {authMode === "login" ? <><span className="green">WELCOME</span><br />BACK.</> : <>LET'S<br /><span className="green">BEGIN.</span></>}
+                  </div>
+                  {authError && <div className="auth-error">{authError}</div>}
+                  <AuthForm
+                    mode={authMode}
+                    onSubmit={authMode === "login" ? handleLogin : handleSignUp}
+                    submitting={authSubmitting}
+                  />
+                  <div className="auth-toggle">
+                    {authMode === "login" ? "Don't have an account?" : "Already have an account?"}
+                    <button onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}>
+                      {authMode === "login" ? "Sign up" : "Sign in"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
