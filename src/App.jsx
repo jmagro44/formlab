@@ -78,6 +78,10 @@ const css = `
     padding: 24px 0 28px;
     border-bottom: 1px solid var(--border);
     margin-bottom: 40px;
+    position: sticky;
+    top: 0;
+    background: #0d0f0e;
+    z-index: 100;
   }
   .nav-logo {
     font-family: 'Bebas Neue', sans-serif;
@@ -560,10 +564,8 @@ const css = `
   .tab-bar {
     position: fixed;
     bottom: 0; left: 0; right: 0;
-    background: rgba(13,15,14,0.96);
+    background: #0d0f0e;
     border-top: 1px solid var(--border);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     display: flex;
     z-index: 150;
     padding-bottom: env(safe-area-inset-bottom, 0px);
