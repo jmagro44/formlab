@@ -565,6 +565,36 @@ const css = `
     margin-left: 8px;
   }
   .nav-admin:hover { background: rgba(181,245,66,0.12); }
+  .nav-history {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--accent2); cursor: pointer; padding: 6px 14px;
+    background: transparent; border: 1px solid rgba(66,245,200,0.25);
+    border-radius: 4px; letter-spacing: 0.05em; margin-left: 8px;
+  }
+  .nav-history:hover { background: rgba(66,245,200,0.08); }
+
+  /* ── HISTORY ── */
+  .history-wrap { max-width: 640px; margin: 0 auto; padding: 40px 20px 80px; }
+  .history-empty { text-align: center; padding: 64px 0; color: var(--muted); }
+  .history-empty-icon { font-size: 40px; margin-bottom: 16px; }
+  .history-list { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
+  .history-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 18px 20px; cursor: pointer; transition: border-color 0.15s;
+  }
+  .history-card:hover { border-color: var(--accent2); }
+  .history-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .history-card-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 0.04em; color: var(--text); }
+  .history-card-date { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .history-card-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .history-card-badge {
+    font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em;
+    padding: 3px 8px; border-radius: 3px; border: 1px solid var(--border); color: var(--muted);
+  }
+  .history-card-badge.green { border-color: rgba(181,245,66,0.3); color: var(--accent); background: rgba(181,245,66,0.06); }
+  .history-card-badge.teal  { border-color: rgba(66,245,200,0.3); color: var(--accent2); background: rgba(66,245,200,0.06); }
+  .history-detail-back { display: flex; align-items: center; gap: 8px; background: none; border: none; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; padding: 0; margin-bottom: 24px; letter-spacing: 0.05em; }
+  .history-detail-back:hover { color: var(--text); }
 `;
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -894,6 +924,11 @@ export default function TrainerApp() {
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
 
+  // ── HISTORY STATE ──
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyDetail, setHistoryDetail] = useState(null); // workout object being viewed
+
   const toggleArr = (arr, val) =>
     arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
 
@@ -1006,6 +1041,38 @@ export default function TrainerApp() {
     fetchAdminUsers();
   }
 
+  async function saveWorkoutToHistory(parsed) {
+    if (!user) return;
+    await supabase.from("workouts").insert({
+      user_id: user.id,
+      title: parsed.title || "Workout",
+      focus_area: parsed.focusArea || "",
+      session_style: parsed.sessionStyle || "",
+      duration_mins: parseInt(session.duration) || 20,
+      workout_json: parsed,
+    });
+  }
+
+  async function fetchHistory() {
+    if (!user) return;
+    setHistoryLoading(true);
+    const { data } = await supabase
+      .from("workouts")
+      .select("id, created_at, title, focus_area, session_style, duration_mins, workout_json")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setHistory(data || []);
+    setHistoryLoading(false);
+  }
+
+  async function deleteWorkout(id) {
+    if (!confirm("Remove this workout from your history?")) return;
+    await supabase.from("workouts").delete().eq("id", id).eq("user_id", user.id);
+    setHistory(h => h.filter(w => w.id !== id));
+    if (historyDetail?.id === id) setHistoryDetail(null);
+  }
+
   async function generateWorkout() {
     setView("generating");
     setError("");
@@ -1023,6 +1090,7 @@ export default function TrainerApp() {
       const clean = raw.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
       setWorkout(parsed);
+      saveWorkoutToHistory(parsed);
       setView("workout");
     } catch (e) {
       setError("Couldn't generate your workout. Check your connection and try again.");
@@ -1073,12 +1141,17 @@ export default function TrainerApp() {
                 Edit Profile
               </button>
             )}
+            {(view === "session" || view === "workout" || view === "history") && (
+              <button className="nav-history" onClick={() => { fetchHistory(); setHistoryDetail(null); setView("history"); }}>
+                History
+              </button>
+            )}
             {isAdmin && view !== "admin" && (
               <button className="nav-admin" onClick={() => { fetchAdminUsers(); setView("admin"); }}>
                 Admin
               </button>
             )}
-            {(view === "admin" || view === "session" || view === "workout") && (
+            {(view === "admin" || view === "session" || view === "workout" || view === "history") && (
               <button className="nav-signout" onClick={handleSignOut}>
                 Sign Out
               </button>
@@ -1513,6 +1586,64 @@ export default function TrainerApp() {
             </div>
           </div>
         )}
+
+        {/* ── HISTORY ── */}
+        {view === "history" && (
+          <div className="history-wrap fade-in">
+            {historyDetail ? (
+              <>
+                <button className="history-detail-back" onClick={() => setHistoryDetail(null)}>
+                  ← Back to History
+                </button>
+                <WorkoutView
+                  workout={historyDetail.workout_json}
+                  sessionDuration={String(historyDetail.duration_mins)}
+                  onReset={() => setHistoryDetail(null)}
+                />
+              </>
+            ) : (
+              <>
+                <div className="section-label" style={{ marginBottom: "4px" }}>Your Sessions</div>
+                <div className="page-title">WORKOUT HISTORY</div>
+                {historyLoading ? (
+                  <div style={{ textAlign: "center", padding: "48px 0", color: "var(--muted)" }}>Loading…</div>
+                ) : history.length === 0 ? (
+                  <div className="history-empty">
+                    <div className="history-empty-icon">🏋️</div>
+                    <div style={{ color: "var(--muted)", fontSize: "14px" }}>No workouts yet. Generate your first session!</div>
+                    <button className="btn btn-primary" style={{ marginTop: "24px" }} onClick={() => setView("session")}>
+                      Build a Workout →
+                    </button>
+                  </div>
+                ) : (
+                  <div className="history-list">
+                    {history.map(w => (
+                      <div className="history-card" key={w.id} onClick={() => setHistoryDetail(w)}>
+                        <div className="history-card-top">
+                          <div className="history-card-title">{w.title}</div>
+                          <div className="history-card-date">
+                            {new Date(w.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </div>
+                        </div>
+                        <div className="history-card-meta">
+                          <span className="history-card-badge green">⏱ {w.duration_mins} min</span>
+                          {w.focus_area && <span className="history-card-badge">{w.focus_area}</span>}
+                          {w.session_style && <span className="history-card-badge teal">{w.session_style}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {history.length > 0 && (
+                  <div className="btn-row" style={{ marginTop: "32px", borderTop: "1px solid var(--border)", paddingTop: "24px" }}>
+                    <button className="btn btn-secondary" onClick={() => setView("session")}>← Back to Session</button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
       </div>
     </>
   );
