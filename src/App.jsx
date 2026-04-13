@@ -595,6 +595,85 @@ const css = `
   .history-card-badge.teal  { border-color: rgba(66,245,200,0.3); color: var(--accent2); background: rgba(66,245,200,0.06); }
   .history-detail-back { display: flex; align-items: center; gap: 8px; background: none; border: none; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; padding: 0; margin-bottom: 24px; letter-spacing: 0.05em; }
   .history-detail-back:hover { color: var(--text); }
+  .history-card-ratings { display: flex; gap: 12px; margin-top: 8px; }
+  .history-rating-chip {
+    font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .history-completed-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); display: inline-block; margin-right: 4px;
+  }
+
+  /* ── FEEDBACK MODAL ── */
+  .feedback-overlay {
+    position: fixed; inset: 0;
+    background: rgba(13,15,14,0.92);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 200; animation: fadeIn 0.2s ease both;
+  }
+  @media (min-height: 600px) {
+    .feedback-overlay { align-items: center; }
+  }
+  .feedback-modal {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px 12px 0 0; padding: 32px 28px 40px;
+    width: 100%; max-width: 480px;
+    animation: slideUp 0.3s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  @media (min-height: 600px) {
+    .feedback-modal { border-radius: 12px; padding: 36px 32px; }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(40px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .feedback-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 32px;
+    letter-spacing: 0.05em; color: var(--text); margin-bottom: 4px;
+  }
+  .feedback-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+  .feedback-label {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 10px;
+  }
+  .star-row { display: flex; gap: 8px; margin-bottom: 24px; }
+  .star-btn {
+    width: 44px; height: 44px; border-radius: 6px;
+    border: 1px solid var(--border); background: transparent;
+    font-size: 20px; cursor: pointer; transition: all 0.12s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .star-btn.active { background: rgba(181,245,66,0.12); border-color: rgba(181,245,66,0.45); }
+  .star-btn.active.energy { background: rgba(66,245,200,0.1); border-color: rgba(66,245,200,0.4); }
+  .feedback-note {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text);
+    resize: none; min-height: 72px; outline: none;
+    transition: border-color 0.15s; margin-bottom: 24px;
+  }
+  .feedback-note:focus { border-color: rgba(181,245,66,0.4); }
+  .feedback-note::placeholder { color: var(--muted); }
+
+  /* ── TODAY SECTION ── */
+  .today-card {
+    background: var(--surface); border: 1px solid rgba(181,245,66,0.2);
+    border-radius: 8px; padding: 18px 20px; margin-bottom: 32px;
+    cursor: pointer; transition: border-color 0.15s;
+  }
+  .today-card:hover { border-color: rgba(181,245,66,0.45); }
+  .today-card-label {
+    font-family: 'DM Mono', monospace; font-size: 9px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 6px;
+  }
+  .today-card-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 22px;
+    letter-spacing: 0.04em; color: var(--text); margin-bottom: 8px;
+  }
+  .today-card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 
   /* ── MOBILE ─────────────────────────────────────────────────────────────── */
   @media (max-width: 540px) {
@@ -822,12 +901,17 @@ function ExCard({ ex, idx }) {
   );
 }
 
-function WorkoutView({ workout, sessionDuration, onReset }) {
+function WorkoutView({ workout, sessionDuration, onReset, onComplete, readOnly }) {
   const [timerActive, setTimerActive] = useState(false);
   const [seconds, setSeconds] = useState(parseInt(sessionDuration) * 60 || 20 * 60);
   const [elapsed, setElapsed] = useState(0);
   const total = parseInt(sessionDuration) * 60 || 20 * 60;
   const intervalRef = useRef(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [effort, setEffort] = useState(0);
+  const [energy, setEnergy] = useState(0);
+  const [feedbackNote, setFeedbackNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (timerActive) {
@@ -908,11 +992,73 @@ function WorkoutView({ workout, sessionDuration, onReset }) {
       ))}
 
       <div className="btn-row" style={{ marginTop: "40px", borderTop: "1px solid var(--border)", paddingTop: "32px" }}>
-        <button className="btn btn-secondary" onClick={onReset}>New Session</button>
-        <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-          Back to Top
+        <button className="btn btn-secondary" onClick={onReset}>
+          {readOnly ? "← Back" : "New Session"}
         </button>
+        {!readOnly && onComplete && (
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => { setTimerActive(false); setShowFeedback(true); }}>
+            Complete Workout ✓
+          </button>
+        )}
+        {readOnly && (
+          <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+            Back to Top
+          </button>
+        )}
       </div>
+
+      {/* ── FEEDBACK MODAL ── */}
+      {showFeedback && (
+        <div className="feedback-overlay" onClick={e => { if (e.target === e.currentTarget) setShowFeedback(false); }}>
+          <div className="feedback-modal">
+            <div className="feedback-title">Session Complete</div>
+            <div className="feedback-sub">Nice work. How did it go?</div>
+
+            <div className="feedback-label">Effort — how hard did you push?</div>
+            <div className="star-row">
+              {[1,2,3,4,5].map(n => (
+                <button key={n} className={`star-btn${effort >= n ? " active" : ""}`} onClick={() => setEffort(n)}>
+                  {effort >= n ? "●" : "○"}
+                </button>
+              ))}
+            </div>
+
+            <div className="feedback-label">Energy — how do you feel after?</div>
+            <div className="star-row">
+              {[1,2,3,4,5].map(n => (
+                <button key={n} className={`star-btn energy${energy >= n ? " active" : ""}`} onClick={() => setEnergy(n)}>
+                  {energy >= n ? "●" : "○"}
+                </button>
+              ))}
+            </div>
+
+            <div className="feedback-label">Notes (optional)</div>
+            <textarea
+              className="feedback-note"
+              placeholder="Any aches, PRs, observations…"
+              value={feedbackNote}
+              onChange={e => setFeedbackNote(e.target.value)}
+            />
+
+            <div className="btn-row" style={{ margin: 0 }}>
+              <button className="btn btn-secondary" onClick={() => setShowFeedback(false)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                disabled={submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  await onComplete({ effort, energy, note: feedbackNote });
+                  setSubmitting(false);
+                  setShowFeedback(false);
+                }}
+              >
+                {submitting ? "Saving…" : "Log Workout →"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1018,7 +1164,8 @@ export default function TrainerApp() {
   // ── HISTORY STATE ──
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyDetail, setHistoryDetail] = useState(null); // workout object being viewed
+  const [historyDetail, setHistoryDetail] = useState(null);
+  const [todayWorkout, setTodayWorkout] = useState(null); // most recent completed workout from today
 
   // Tracks which user ID has already had their profile loaded — prevents
   // duplicate loadProfile calls from getSession() + onAuthStateChange both
@@ -1073,6 +1220,17 @@ export default function TrainerApp() {
     if (data?.fitness_level) {
       setProfile(p => ({ ...p, fitnessLevel: data.fitness_level, goals: data.goals || [], equipment: data.equipment || [] }));
       setIsAdmin(data.is_admin || false);
+      // Fetch today's completed workout for the session page banner
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      supabase.from("workouts")
+        .select("id, created_at, title, focus_area, session_style, duration_mins, effort_rating, energy_rating, workout_json")
+        .eq("user_id", supaUser.id)
+        .not("completed_at", "is", null)
+        .gte("completed_at", todayStart.toISOString())
+        .order("completed_at", { ascending: false })
+        .limit(1)
+        .single()
+        .then(({ data: td }) => setTodayWorkout(td || null));
       // Restore active workout if one was in progress
       try {
         const savedWorkout = localStorage.getItem("fl_workout");
@@ -1169,16 +1327,69 @@ export default function TrainerApp() {
     fetchAdminUsers();
   }
 
-  async function saveWorkoutToHistory(parsed) {
-    if (!user) return;
-    await supabase.from("workouts").insert({
+  async function saveWorkoutToHistory(parsed, feedback = null) {
+    if (!user) return null;
+    const { data } = await supabase.from("workouts").insert({
       user_id: user.id,
       title: parsed.title || "Workout",
       focus_area: parsed.focusArea || "",
       session_style: parsed.sessionStyle || "",
       duration_mins: parseInt(session.duration) || 20,
       workout_json: parsed,
-    });
+      completed_at: feedback ? new Date().toISOString() : null,
+      effort_rating: feedback?.effort || null,
+      energy_rating: feedback?.energy || null,
+      session_notes: feedback?.note || null,
+    }).select().single();
+    return data;
+  }
+
+  async function completeWorkout(feedback) {
+    // Update the existing workout row (already inserted on generate) with completion data
+    if (!workout || !user) return;
+    // Find the most recently inserted workout for this session (created in last 4 hours)
+    const since = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+    const { data: rows } = await supabase
+      .from("workouts")
+      .select("id")
+      .eq("user_id", user.id)
+      .is("completed_at", null)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (rows?.length > 0) {
+      await supabase.from("workouts").update({
+        completed_at: new Date().toISOString(),
+        effort_rating: feedback.effort || null,
+        energy_rating: feedback.energy || null,
+        session_notes: feedback.note || null,
+      }).eq("id", rows[0].id);
+    }
+
+    // Clear active workout, refresh today + history
+    localStorage.removeItem("fl_workout");
+    localStorage.removeItem("fl_session");
+    setWorkout(null);
+    setSession(s => ({ ...s, notes: "", focus: "", style: "Mixed / Surprise me" }));
+    await fetchTodayWorkout();
+    setView("session");
+  }
+
+  async function fetchTodayWorkout() {
+    if (!user) return;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const { data } = await supabase
+      .from("workouts")
+      .select("id, created_at, title, focus_area, session_style, duration_mins, effort_rating, energy_rating, workout_json")
+      .eq("user_id", user.id)
+      .not("completed_at", "is", null)
+      .gte("completed_at", todayStart.toISOString())
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .single();
+    setTodayWorkout(data || null);
   }
 
   async function fetchHistory() {
@@ -1186,9 +1397,10 @@ export default function TrainerApp() {
     setHistoryLoading(true);
     const { data } = await supabase
       .from("workouts")
-      .select("id, created_at, title, focus_area, session_style, duration_mins, workout_json")
+      .select("id, created_at, completed_at, title, focus_area, session_style, duration_mins, effort_rating, energy_rating, session_notes, workout_json")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
       .limit(50);
     setHistory(data || []);
     setHistoryLoading(false);
@@ -1558,6 +1770,21 @@ export default function TrainerApp() {
             <div className="page-title">TODAY'S<br /><span className="green">SESSION</span></div>
             <div className="page-subtitle">Tell your trainer what you need today.</div>
 
+            {/* Today's completed workout banner */}
+            {todayWorkout && (
+              <div className="today-card" onClick={() => { setHistoryDetail(todayWorkout); fetchHistory(); setView("history"); }}>
+                <div className="today-card-label">✓ Completed Today</div>
+                <div className="today-card-title">{todayWorkout.title}</div>
+                <div className="today-card-meta">
+                  <span className="history-card-badge green">⏱ {todayWorkout.duration_mins} min</span>
+                  {todayWorkout.focus_area && <span className="history-card-badge">{todayWorkout.focus_area}</span>}
+                  {todayWorkout.effort_rating > 0 && (
+                    <span className="history-card-badge teal">Effort {todayWorkout.effort_rating}/5</span>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="section-label">Duration</div>
             <div className="field">
               <div className="duration-row">
@@ -1655,6 +1882,7 @@ export default function TrainerApp() {
               setSession(s => ({ ...s, notes: "", focus: "", style: "Mixed / Surprise me" }));
               setView("session");
             }}
+            onComplete={completeWorkout}
           />
         )}
 
@@ -1730,6 +1958,7 @@ export default function TrainerApp() {
                   workout={historyDetail.workout_json}
                   sessionDuration={String(historyDetail.duration_mins)}
                   onReset={() => setHistoryDetail(null)}
+                  readOnly
                 />
               </>
             ) : (
@@ -1753,14 +1982,21 @@ export default function TrainerApp() {
                         <div className="history-card-top">
                           <div className="history-card-title">{w.title}</div>
                           <div className="history-card-date">
-                            {new Date(w.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            {new Date(w.completed_at || w.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                           </div>
                         </div>
                         <div className="history-card-meta">
                           <span className="history-card-badge green">⏱ {w.duration_mins} min</span>
                           {w.focus_area && <span className="history-card-badge">{w.focus_area}</span>}
                           {w.session_style && <span className="history-card-badge teal">{w.session_style}</span>}
+                          {w.effort_rating > 0 && <span className="history-card-badge">Effort {w.effort_rating}/5</span>}
+                          {w.energy_rating > 0 && <span className="history-card-badge">Energy {w.energy_rating}/5</span>}
                         </div>
+                        {w.session_notes && (
+                          <div style={{ marginTop: "8px", fontSize: "12px", color: "var(--muted)", lineHeight: 1.5, fontStyle: "italic" }}>
+                            "{w.session_notes}"
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
