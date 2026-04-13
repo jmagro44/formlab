@@ -1253,7 +1253,8 @@ export default function TrainerApp() {
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyDetail, setHistoryDetail] = useState(null);
-  const [todayWorkout, setTodayWorkout] = useState(null); // most recent completed workout from today
+  const [todayWorkout, setTodayWorkout] = useState(null);
+  const [activeWorkoutId, setActiveWorkoutId] = useState(null); // DB row ID of current in-progress workout
 
   // Tracks which user ID has already had their profile loaded — prevents
   // duplicate loadProfile calls from getSession() + onAuthStateChange both
@@ -1374,6 +1375,7 @@ export default function TrainerApp() {
     localStorage.removeItem("fl_workout");
     localStorage.removeItem("fl_session");
     profileLoadedForRef.current = null;
+    setActiveWorkoutId(null);
     await supabase.auth.signOut();
     setProfile({ name: "", fitnessLevel: "", equipment: [], goals: [] });
     setSession(s => ({ ...s, notes: "", focus: "", style: "Mixed / Surprise me" }));
@@ -1433,33 +1435,52 @@ export default function TrainerApp() {
   }
 
   async function completeWorkout(feedback) {
-    // Update the existing workout row (already inserted on generate) with completion data
     if (!workout || !user) return;
-    // Find the most recently inserted workout for this session (created in last 4 hours)
-    const since = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-    const { data: rows } = await supabase
-      .from("workouts")
-      .select("id")
-      .eq("user_id", user.id)
-      .is("completed_at", null)
-      .gte("created_at", since)
-      .order("created_at", { ascending: false })
-      .limit(1);
 
-    if (rows?.length > 0) {
-      await supabase.from("workouts").update({
-        completed_at: new Date().toISOString(),
-        effort_rating: feedback.effort || null,
-        energy_rating: feedback.energy || null,
-        liked: feedback.liked ?? null,
-        session_notes: feedback.note || null,
-      }).eq("id", rows[0].id);
+    const completionData = {
+      completed_at: new Date().toISOString(),
+      effort_rating: feedback.effort || null,
+      energy_rating: feedback.energy || null,
+      liked: feedback.liked ?? null,
+      session_notes: feedback.note || null,
+    };
+
+    if (activeWorkoutId) {
+      // Best case: we have the exact row ID from when it was inserted
+      await supabase.from("workouts").update(completionData).eq("id", activeWorkoutId);
+    } else {
+      // Fallback: find the most recent incomplete row for this user
+      const since = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+      const { data: rows } = await supabase
+        .from("workouts")
+        .select("id")
+        .eq("user_id", user.id)
+        .is("completed_at", null)
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (rows?.length > 0) {
+        await supabase.from("workouts").update(completionData).eq("id", rows[0].id);
+      } else {
+        // No existing row — insert fresh with completion data
+        await supabase.from("workouts").insert({
+          user_id: user.id,
+          title: workout.title || "Workout",
+          focus_area: workout.focusArea || "",
+          session_style: workout.sessionStyle || "",
+          duration_mins: parseInt(session.duration) || 20,
+          workout_json: workout,
+          ...completionData,
+        });
+      }
     }
 
-    // Clear active workout, refresh today + history
+    // Clear active workout state
     localStorage.removeItem("fl_workout");
     localStorage.removeItem("fl_session");
     setWorkout(null);
+    setActiveWorkoutId(null);
     setSession(s => ({ ...s, notes: "", focus: "", style: "Mixed / Surprise me" }));
     await fetchTodayWorkout();
     setView("session");
@@ -1519,7 +1540,9 @@ export default function TrainerApp() {
       const clean = raw.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
       setWorkout(parsed);
-      saveWorkoutToHistory(parsed);
+      saveWorkoutToHistory(parsed).then(row => {
+        if (row?.id) setActiveWorkoutId(row.id);
+      });
       setView("workout");
     } catch (e) {
       setError("Couldn't generate your workout. Check your connection and try again.");
@@ -1949,6 +1972,7 @@ export default function TrainerApp() {
               localStorage.removeItem("fl_workout");
               localStorage.removeItem("fl_session");
               setWorkout(null);
+              setActiveWorkoutId(null);
               setSession(s => ({ ...s, notes: "", focus: "", style: "Mixed / Surprise me" }));
               setView("session");
             }}
