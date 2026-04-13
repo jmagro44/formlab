@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { supabase } from "./supabase.js";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -472,6 +473,98 @@ const css = `
     padding: 0 20px 80px;
     min-height: 100vh;
   }
+
+  /* ── AUTH ── */
+  .auth-wrap {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: 60vh; padding: 20px 0;
+  }
+  .auth-card {
+    width: 100%; max-width: 400px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 36px 32px;
+  }
+  .auth-input {
+    width: 100%; background: var(--bg);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 11px 14px; font-family: 'DM Sans', sans-serif;
+    font-size: 14px; color: var(--text); outline: none;
+    transition: border-color 0.15s; margin-bottom: 12px;
+  }
+  .auth-input:focus { border-color: rgba(181,245,66,0.4); }
+  .auth-input::placeholder { color: var(--muted); }
+  .auth-error {
+    font-size: 12px; color: var(--warm); margin-bottom: 14px;
+    padding: 8px 12px; background: rgba(245,167,66,0.08);
+    border: 1px solid rgba(245,167,66,0.2); border-radius: var(--radius);
+  }
+  .auth-toggle {
+    text-align: center; margin-top: 20px;
+    font-size: 13px; color: var(--muted);
+  }
+  .auth-toggle button {
+    background: none; border: none; color: var(--accent);
+    cursor: pointer; font-size: 13px; font-family: 'DM Sans', sans-serif;
+    padding: 0; margin-left: 6px; text-decoration: underline;
+  }
+
+  /* ── ADMIN ── */
+  .admin-header { margin-bottom: 28px; }
+  .admin-table-wrap { overflow-x: auto; }
+  .admin-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 12px;
+  }
+  .admin-table th {
+    font-family: 'DM Mono', monospace; font-size: 9px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); padding: 8px 12px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .admin-table td {
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    color: var(--text); vertical-align: top;
+  }
+  .admin-table tr:last-child td { border-bottom: none; }
+  .admin-table tr:hover td { background: var(--surface); }
+  .admin-badge {
+    font-family: 'DM Mono', monospace; font-size: 9px;
+    padding: 2px 7px; border-radius: 2px; letter-spacing: 0.08em;
+    background: rgba(181,245,66,0.08); color: var(--accent);
+    border: 1px solid rgba(181,245,66,0.2);
+  }
+  .admin-badge.inactive {
+    background: rgba(107,117,112,0.1); color: var(--muted);
+    border-color: var(--border);
+  }
+  .admin-action-btn {
+    font-family: 'DM Mono', monospace; font-size: 9px;
+    letter-spacing: 0.08em; padding: 3px 9px; border-radius: 2px;
+    cursor: pointer; transition: all 0.15s; margin-right: 5px;
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+  }
+  .admin-action-btn:hover { color: var(--text); border-color: var(--muted); }
+  .admin-action-btn.danger { border-color: rgba(245,167,66,0.3); color: var(--warm); }
+  .admin-action-btn.danger:hover { background: rgba(245,167,66,0.08); }
+  .admin-empty { text-align: center; padding: 48px 0; color: var(--muted); font-size: 13px; }
+
+  .nav-signout {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--muted); cursor: pointer; padding: 6px 14px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    transition: all 0.15s; background: transparent; letter-spacing: 0.05em;
+    margin-left: 8px;
+  }
+  .nav-signout:hover { background: var(--surface); color: var(--text); border-color: var(--muted); }
+  .nav-admin {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--accent); cursor: pointer; padding: 6px 14px;
+    border: 1px solid rgba(181,245,66,0.3); border-radius: var(--radius);
+    transition: all 0.15s; background: rgba(181,245,66,0.06); letter-spacing: 0.05em;
+    margin-left: 8px;
+  }
+  .nav-admin:hover { background: rgba(181,245,66,0.12); }
 `;
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -706,10 +799,76 @@ function WorkoutView({ workout, sessionDuration, onReset }) {
   );
 }
 
+// ─── AUTH FORM SUB-COMPONENT ──────────────────────────────────────────────────
+
+function AuthForm({ mode, onSubmit, submitting }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [localError, setLocalError] = useState("");
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    setLocalError("");
+    if (mode === "signup" && password !== confirmPassword) {
+      setLocalError("Passwords do not match.");
+      return;
+    }
+    if (password.length < 6) {
+      setLocalError("Password must be at least 6 characters.");
+      return;
+    }
+    onSubmit(email, password);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {localError && <div className="auth-error">{localError}</div>}
+      <input
+        className="auth-input"
+        type="email"
+        placeholder="Email address"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        required
+        autoComplete="email"
+      />
+      <input
+        className="auth-input"
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        required
+        autoComplete={mode === "signup" ? "new-password" : "current-password"}
+      />
+      {mode === "signup" && (
+        <input
+          className="auth-input"
+          type="password"
+          placeholder="Confirm password"
+          value={confirmPassword}
+          onChange={e => setConfirmPassword(e.target.value)}
+          required
+          autoComplete="new-password"
+        />
+      )}
+      <button
+        className="btn btn-primary"
+        type="submit"
+        disabled={submitting}
+        style={{ marginTop: "4px" }}
+      >
+        {submitting ? "Please wait…" : mode === "login" ? "Sign In →" : "Create Account →"}
+      </button>
+    </form>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 
 export default function TrainerApp() {
-  // VIEW: "welcome" | "onboarding_1" | "onboarding_2" | "onboarding_3" | "splash" | "session" | "generating" | "workout"
+  // VIEW: "auth" | "welcome" | "onboarding_1" | "onboarding_2" | "onboarding_3" | "splash" | "session" | "generating" | "workout" | "admin"
   const [view, setView] = useState("welcome");
   const [profile, setProfile] = useState({
     name: "",
@@ -726,10 +885,123 @@ export default function TrainerApp() {
   const [workout, setWorkout] = useState(null);
   const [error, setError] = useState("");
 
+  // ── AUTH STATE ──
+  const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState("login");
+  const [authError, setAuthError] = useState("");
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+
+  // ── ADMIN STATE ──
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+
   const toggleArr = (arr, val) =>
     arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
 
   const sessionComplete = session.duration && session.focus;
+
+  // ── AUTH ──
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: supaSession } }) => {
+      if (supaSession?.user) {
+        setUser(supaSession.user);
+        loadProfile(supaSession.user);
+      } else {
+        setView("auth");
+        setAuthLoading(false);
+      }
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, supaSession) => {
+      if (!supaSession) { setUser(null); setIsAdmin(false); setView("auth"); }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function loadProfile(supaUser) {
+    const { data } = await supabase.from("profiles").select("*").eq("id", supaUser.id).single();
+    if (data?.fitness_level) {
+      setProfile(p => ({ ...p, fitnessLevel: data.fitness_level, goals: data.goals || [], equipment: data.equipment || [] }));
+      setIsAdmin(data.is_admin || false);
+      setView("session");
+    } else {
+      setView("onboarding_1");
+    }
+    setAuthLoading(false);
+  }
+
+  async function saveProfile() {
+    if (!user) return;
+    await supabase.from("profiles").upsert({
+      id: user.id,
+      email: user.email,
+      fitness_level: profile.fitnessLevel,
+      goals: profile.goals,
+      equipment: profile.equipment,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  async function handleSignUp(email, password) {
+    setAuthSubmitting(true); setAuthError("");
+    const { error: signUpError } = await supabase.auth.signUp({ email, password });
+    if (signUpError) { setAuthError(signUpError.message); setAuthSubmitting(false); return; }
+    const { data: { session: supaSession } } = await supabase.auth.getSession();
+    if (supaSession?.user) { setUser(supaSession.user); loadProfile(supaSession.user); }
+    setAuthSubmitting(false);
+  }
+
+  async function handleLogin(email, password) {
+    setAuthSubmitting(true); setAuthError("");
+    const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+    if (loginError) { setAuthError(loginError.message); setAuthSubmitting(false); return; }
+    const { data: { session: supaSession } } = await supabase.auth.getSession();
+    if (supaSession?.user) { setUser(supaSession.user); loadProfile(supaSession.user); }
+    setAuthSubmitting(false);
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setProfile({ name: "", fitnessLevel: "", equipment: [], goals: [] });
+    setSession(s => ({ ...s, notes: "", focus: "", style: "Mixed / Surprise me" }));
+    setWorkout(null);
+    setView("auth");
+  }
+
+  async function fetchAdminUsers() {
+    setAdminLoading(true);
+    const { data: { session: supaSession } } = await supabase.auth.getSession();
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supaSession.access_token}` },
+      body: JSON.stringify({ action: "list_users" }),
+    });
+    const data = await res.json();
+    setAdminUsers(Array.isArray(data) ? data : []);
+    setAdminLoading(false);
+  }
+
+  async function handleToggleAdmin(userId, currentValue) {
+    const { data: { session: supaSession } } = await supabase.auth.getSession();
+    await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supaSession.access_token}` },
+      body: JSON.stringify({ action: "toggle_admin", userId, updates: { is_admin: !currentValue } }),
+    });
+    fetchAdminUsers();
+  }
+
+  async function handleDeleteUser(userId) {
+    if (!confirm("Permanently delete this user and all their data?")) return;
+    const { data: { session: supaSession } } = await supabase.auth.getSession();
+    await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supaSession.access_token}` },
+      body: JSON.stringify({ action: "delete_user", userId }),
+    });
+    fetchAdminUsers();
+  }
 
   async function generateWorkout() {
     setView("generating");
@@ -757,18 +1029,99 @@ export default function TrainerApp() {
 
   // ── RENDER ──
 
+  // Auth loading state
+  if (authLoading) {
+    return (
+      <>
+        <style>{css}</style>
+        <div className="app">
+          <div className="generating" style={{ minHeight: "100vh" }}>
+            <div className="fl-tile-wrap">
+              <svg viewBox="0 0 250 350" xmlns="http://www.w3.org/2000/svg" className="fl-tile-svg">
+                <rect x="0" y="0" width="250" height="350" rx="6" fill="#1c1f1e" stroke="#b5f542" strokeWidth="2.5"/>
+                <rect x="9" y="9" width="232" height="332" rx="3" fill="none" stroke="#2a2f2d" strokeWidth="1"/>
+                <circle cx="16" cy="16" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="234" cy="16" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="16" cy="334" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="234" cy="334" r="3" fill="#b5f542" opacity="0.3"/>
+                <text x="20" y="42" fontFamily="'Arial Black',Arial,sans-serif" fontSize="22" fontWeight="900" fill="#6b7570" textAnchor="start">315</text>
+                <text x="105" y="228" textAnchor="middle" fontFamily="'Arial Narrow','Helvetica Neue',Arial,sans-serif" fontSize="148" fontWeight="700" fill="#b5f542">F</text>
+                <text x="170" y="228" textAnchor="middle" fontFamily="'Arial Narrow','Helvetica Neue',Arial,sans-serif" fontSize="82" fontWeight="700" fill="#ffffff">L</text>
+                <line x1="18" y1="258" x2="232" y2="258" stroke="#2a2f2d" strokeWidth="1"/>
+                <text x="125" y="292" textAnchor="middle" fontFamily="'DM Mono','Courier New',monospace" fontSize="16" fontWeight="400" fill="#a8b4aa" letterSpacing="3">Formlab</text>
+                <text x="125" y="320" textAnchor="middle" fontFamily="'DM Mono','Courier New',monospace" fontSize="16" fontWeight="500" fill="#6b7570" letterSpacing="1">2026.0</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <style>{css}</style>
       <div className="app">
         <nav className="nav">
           <div className="nav-logo">Form<span>Lab</span></div>
-          {view !== "welcome" && view !== "onboarding_1" && view !== "onboarding_2" && view !== "onboarding_3" && (
-            <button className="nav-profile" onClick={() => setView("onboarding_1")}>
-              Edit Profile
-            </button>
-          )}
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {view !== "welcome" && view !== "onboarding_1" && view !== "onboarding_2" && view !== "onboarding_3" && view !== "auth" && (
+              <button className="nav-profile" onClick={() => setView("onboarding_1")}>
+                Edit Profile
+              </button>
+            )}
+            {isAdmin && view !== "admin" && (
+              <button className="nav-admin" onClick={() => { fetchAdminUsers(); setView("admin"); }}>
+                Admin
+              </button>
+            )}
+            {(view === "admin" || view === "session" || view === "workout") && (
+              <button className="nav-signout" onClick={handleSignOut}>
+                Sign Out
+              </button>
+            )}
+          </div>
         </nav>
+
+        {/* ── AUTH ── */}
+        {view === "auth" && (
+          <div className="auth-wrap fade-in">
+            <div style={{ textAlign: "center", marginBottom: "36px" }}>
+              <svg viewBox="0 0 250 350" xmlns="http://www.w3.org/2000/svg" style={{ width: "80px", height: "auto", display: "block", margin: "0 auto" }}>
+                <rect x="0" y="0" width="250" height="350" rx="6" fill="#1c1f1e" stroke="#b5f542" strokeWidth="2.5"/>
+                <rect x="9" y="9" width="232" height="332" rx="3" fill="none" stroke="#2a2f2d" strokeWidth="1"/>
+                <circle cx="16" cy="16" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="234" cy="16" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="16" cy="334" r="3" fill="#b5f542" opacity="0.3"/>
+                <circle cx="234" cy="334" r="3" fill="#b5f542" opacity="0.3"/>
+                <text x="20" y="42" fontFamily="'Arial Black',Arial,sans-serif" fontSize="22" fontWeight="900" fill="#6b7570" textAnchor="start">315</text>
+                <text x="105" y="228" textAnchor="middle" fontFamily="'Arial Narrow','Helvetica Neue',Arial,sans-serif" fontSize="148" fontWeight="700" fill="#b5f542">F</text>
+                <text x="170" y="228" textAnchor="middle" fontFamily="'Arial Narrow','Helvetica Neue',Arial,sans-serif" fontSize="82" fontWeight="700" fill="#ffffff">L</text>
+                <line x1="18" y1="258" x2="232" y2="258" stroke="#2a2f2d" strokeWidth="1"/>
+                <text x="125" y="292" textAnchor="middle" fontFamily="'DM Mono','Courier New',monospace" fontSize="16" fontWeight="400" fill="#a8b4aa" letterSpacing="3">Formlab</text>
+                <text x="125" y="320" textAnchor="middle" fontFamily="'DM Mono','Courier New',monospace" fontSize="16" fontWeight="500" fill="#6b7570" letterSpacing="1">2026.0</text>
+              </svg>
+            </div>
+            <div className="auth-card">
+              <div className="section-label">{authMode === "login" ? "Sign In" : "Create Account"}</div>
+              <div className="page-title" style={{ fontSize: "clamp(36px,8vw,52px)", marginBottom: "24px" }}>
+                {authMode === "login" ? <><span className="green">WELCOME</span><br />BACK.</> : <>LET'S<br /><span className="green">BEGIN.</span></>}
+              </div>
+              {authError && <div className="auth-error">{authError}</div>}
+              <AuthForm
+                mode={authMode}
+                onSubmit={authMode === "login" ? handleLogin : handleSignUp}
+                submitting={authSubmitting}
+              />
+              <div className="auth-toggle">
+                {authMode === "login" ? "Don't have an account?" : "Already have an account?"}
+                <button onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}>
+                  {authMode === "login" ? "Sign up" : "Sign in"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── WELCOME ── */}
         {view === "welcome" && (
@@ -936,7 +1289,7 @@ export default function TrainerApp() {
 
             <div className="btn-row">
               <button className="btn btn-secondary" onClick={() => setView("onboarding_2")}>Back</button>
-              <button className="btn btn-primary" onClick={() => setView("splash")}>
+              <button className="btn btn-primary" onClick={async () => { await saveProfile(); setView("splash"); }}>
                 Start Training →
               </button>
             </div>
@@ -1078,6 +1431,66 @@ export default function TrainerApp() {
               setView("session");
             }}
           />
+        )}
+
+        {/* ── ADMIN PANEL ── */}
+        {view === "admin" && isAdmin && (
+          <div className="fade-in">
+            <div className="admin-header">
+              <div className="section-label">Admin Panel</div>
+              <div className="page-title">USERS</div>
+            </div>
+            {adminLoading ? (
+              <div className="admin-empty">Loading users…</div>
+            ) : adminUsers.length === 0 ? (
+              <div className="admin-empty">No users found.</div>
+            ) : (
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Level</th>
+                      <th>Goals</th>
+                      <th>Equipment</th>
+                      <th>Admin</th>
+                      <th>Joined</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminUsers.map(u => (
+                      <tr key={u.id}>
+                        <td>{u.email}</td>
+                        <td>{u.fitness_level || "—"}</td>
+                        <td>{u.goals?.length ? u.goals.join(", ") : "—"}</td>
+                        <td>{u.equipment?.length ? u.equipment.join(", ") : "—"}</td>
+                        <td>
+                          <span className={`admin-badge${u.is_admin ? "" : " inactive"}`}>
+                            {u.is_admin ? "Admin" : "User"}
+                          </span>
+                        </td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: "var(--muted)" }}>
+                          {new Date(u.created_at).toLocaleDateString()}
+                        </td>
+                        <td>
+                          <button className="admin-action-btn" onClick={() => handleToggleAdmin(u.id, u.is_admin)}>
+                            {u.is_admin ? "Remove Admin" : "Make Admin"}
+                          </button>
+                          <button className="admin-action-btn danger" onClick={() => handleDeleteUser(u.id)}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="btn-row" style={{ marginTop: "40px", borderTop: "1px solid var(--border)", paddingTop: "32px" }}>
+              <button className="btn btn-secondary" onClick={() => setView("session")}>← Back</button>
+            </div>
+          </div>
         )}
       </div>
     </>
