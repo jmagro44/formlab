@@ -929,6 +929,11 @@ export default function TrainerApp() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyDetail, setHistoryDetail] = useState(null); // workout object being viewed
 
+  // Tracks which user ID has already had their profile loaded — prevents
+  // duplicate loadProfile calls from getSession() + onAuthStateChange both
+  // firing on page load, and from TOKEN_REFRESHED re-triggering SIGNED_IN.
+  const profileLoadedForRef = useRef(null);
+
   const toggleArr = (arr, val) =>
     arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
 
@@ -958,7 +963,11 @@ export default function TrainerApp() {
       if (event === "SIGNED_IN" && supaSession?.user) {
         setUser(supaSession.user);
         loadProfile(supaSession.user);
+      } else if (event === "TOKEN_REFRESHED" && supaSession?.user) {
+        // Just keep the user object fresh — don't touch the view
+        setUser(supaSession.user);
       } else if (event === "SIGNED_OUT" || !supaSession) {
+        profileLoadedForRef.current = null;
         setUser(null); setIsAdmin(false); setView("auth");
       }
     });
@@ -966,6 +975,9 @@ export default function TrainerApp() {
   }, []);
 
   async function loadProfile(supaUser) {
+    // Deduplicate: don't re-run if we already loaded for this user ID
+    if (profileLoadedForRef.current === supaUser.id) return;
+    profileLoadedForRef.current = supaUser.id;
     const { data } = await supabase.from("profiles").select("*").eq("id", supaUser.id).single();
     if (data?.fitness_level) {
       setProfile(p => ({ ...p, fitnessLevel: data.fitness_level, goals: data.goals || [], equipment: data.equipment || [] }));
@@ -1024,6 +1036,7 @@ export default function TrainerApp() {
   async function handleSignOut() {
     localStorage.removeItem("fl_workout");
     localStorage.removeItem("fl_session");
+    profileLoadedForRef.current = null;
     await supabase.auth.signOut();
     setProfile({ name: "", fitnessLevel: "", equipment: [], goals: [] });
     setSession(s => ({ ...s, notes: "", focus: "", style: "Mixed / Surprise me" }));
