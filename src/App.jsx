@@ -607,10 +607,8 @@ function Chip({ label, selected, onClick, accent }) {
 async function fetchExerciseData(name) {
   const res = await fetch(`/api/exercise?name=${encodeURIComponent(name)}`);
   const data = await res.json();
-  // New API returns a single object (or null on no match)
-  if (!data || Array.isArray(data)) return null;
-  console.log("[ExerciseDB] raw response for", name, data);
-  // Proxy GIF through our server to bypass hotlink protection
+  if (!data) return null;
+  // Proxy GIF through our server to avoid hotlink blocks
   if (data.gifUrl) {
     data.gifUrl = `/api/gif?url=${encodeURIComponent(data.gifUrl)}`;
   }

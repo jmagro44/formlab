@@ -15,7 +15,7 @@ export default async function handler(req) {
   const response = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (compatible; FormLab/1.0)",
-      "Referer": "https://rapidapi.com/",
+      "Referer": "https://exercisedb.p.rapidapi.com/",
       "Accept": "image/gif,image/webp,image/*",
     },
   });
