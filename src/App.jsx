@@ -723,6 +723,18 @@ const css = `
   }
   .star-btn.active { background: rgba(181,245,66,0.12); border-color: rgba(181,245,66,0.45); }
   .star-btn.active.energy { background: rgba(66,245,200,0.1); border-color: rgba(66,245,200,0.4); }
+  .thumb-row { display: flex; gap: 12px; margin-bottom: 28px; }
+  .thumb-btn {
+    flex: 1; height: 56px; border-radius: 8px;
+    border: 1px solid var(--border); background: transparent;
+    font-size: 24px; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .thumb-btn span { font-size: 22px; }
+  .thumb-btn.up.active   { background: rgba(181,245,66,0.12); border-color: rgba(181,245,66,0.5); color: var(--accent); }
+  .thumb-btn.down.active { background: rgba(245,167,66,0.1);  border-color: rgba(245,167,66,0.4); color: var(--warm); }
   .feedback-note {
     width: 100%; background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 10px 14px;
@@ -975,6 +987,7 @@ function WorkoutView({ workout, sessionDuration, onReset, onComplete, readOnly }
   const [showFeedback, setShowFeedback] = useState(false);
   const [effort, setEffort] = useState(0);
   const [energy, setEnergy] = useState(0);
+  const [liked, setLiked] = useState(null); // true | false | null
   const [feedbackNote, setFeedbackNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -1079,6 +1092,16 @@ function WorkoutView({ workout, sessionDuration, onReset, onComplete, readOnly }
             <div className="feedback-title">Session Complete</div>
             <div className="feedback-sub">Nice work. How did it go?</div>
 
+            <div className="feedback-label">Did you like this workout?</div>
+            <div className="thumb-row">
+              <button className={`thumb-btn up${liked === true ? " active" : ""}`} onClick={() => setLiked(true)}>
+                <span>👍</span> Loved it
+              </button>
+              <button className={`thumb-btn down${liked === false ? " active" : ""}`} onClick={() => setLiked(false)}>
+                <span>👎</span> Not for me
+              </button>
+            </div>
+
             <div className="feedback-label">Effort — how hard did you push?</div>
             <div className="star-row">
               {[1,2,3,4,5].map(n => (
@@ -1113,7 +1136,7 @@ function WorkoutView({ workout, sessionDuration, onReset, onComplete, readOnly }
                 disabled={submitting}
                 onClick={async () => {
                   setSubmitting(true);
-                  await onComplete({ effort, energy, note: feedbackNote });
+                  await onComplete({ effort, energy, liked, note: feedbackNote });
                   setSubmitting(false);
                   setShowFeedback(false);
                 }}
@@ -1428,6 +1451,7 @@ export default function TrainerApp() {
         completed_at: new Date().toISOString(),
         effort_rating: feedback.effort || null,
         energy_rating: feedback.energy || null,
+        liked: feedback.liked ?? null,
         session_notes: feedback.note || null,
       }).eq("id", rows[0].id);
     }
@@ -1462,7 +1486,7 @@ export default function TrainerApp() {
     setHistoryLoading(true);
     const { data } = await supabase
       .from("workouts")
-      .select("id, created_at, completed_at, title, focus_area, session_style, duration_mins, effort_rating, energy_rating, session_notes, workout_json")
+      .select("id, created_at, completed_at, title, focus_area, session_style, duration_mins, effort_rating, energy_rating, liked, session_notes, workout_json")
       .eq("user_id", user.id)
       .not("completed_at", "is", null)
       .order("completed_at", { ascending: false })
@@ -2034,6 +2058,8 @@ export default function TrainerApp() {
                           {w.session_style && <span className="history-card-badge teal">{w.session_style}</span>}
                           {w.effort_rating > 0 && <span className="history-card-badge">Effort {w.effort_rating}/5</span>}
                           {w.energy_rating > 0 && <span className="history-card-badge">Energy {w.energy_rating}/5</span>}
+                          {w.liked === true  && <span className="history-card-badge green">👍 Loved it</span>}
+                          {w.liked === false && <span className="history-card-badge" style={{ borderColor: "rgba(245,167,66,0.3)", color: "var(--warm)" }}>👎 Not for me</span>}
                         </div>
                         {w.session_notes && (
                           <div style={{ marginTop: "8px", fontSize: "12px", color: "var(--muted)", lineHeight: 1.5, fontStyle: "italic" }}>
