@@ -605,15 +605,7 @@ function Chip({ label, selected, onClick, accent }) {
 }
 
 async function fetchExerciseData(name) {
-  const res = await fetch(
-    `https://exercisedb.p.rapidapi.com/exercises/name/${encodeURIComponent(name.toLowerCase())}?limit=1&offset=0`,
-    {
-      headers: {
-        "X-RapidAPI-Key": import.meta.env.VITE_RAPIDAPI_KEY,
-        "X-RapidAPI-Host": "exercisedb.p.rapidapi.com",
-      },
-    }
-  );
+  const res = await fetch(`/api/exercise?name=${encodeURIComponent(name)}`);
   const data = await res.json();
   return Array.isArray(data) && data.length > 0 ? data[0] : null;
 }
