@@ -609,6 +609,10 @@ async function fetchExerciseData(name) {
   const data = await res.json();
   // New API returns a single object (or null on no match)
   if (!data || Array.isArray(data)) return null;
+  // Proxy GIF through our server to bypass hotlink protection
+  if (data.gifUrl) {
+    data.gifUrl = `/api/gif?url=${encodeURIComponent(data.gifUrl)}`;
+  }
   return data;
 }
 
