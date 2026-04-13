@@ -595,6 +595,97 @@ const css = `
   .history-card-badge.teal  { border-color: rgba(66,245,200,0.3); color: var(--accent2); background: rgba(66,245,200,0.06); }
   .history-detail-back { display: flex; align-items: center; gap: 8px; background: none; border: none; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; padding: 0; margin-bottom: 24px; letter-spacing: 0.05em; }
   .history-detail-back:hover { color: var(--text); }
+
+  /* ── MOBILE ─────────────────────────────────────────────────────────────── */
+  @media (max-width: 540px) {
+    .app {
+      padding: 0 16px;
+      padding-bottom: max(80px, env(safe-area-inset-bottom, 80px));
+    }
+
+    /* Nav — compact on mobile */
+    .nav {
+      padding: 14px 0 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .nav-logo { font-size: 22px; }
+    .nav > div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+    .nav-profile, .nav-history, .nav-admin, .nav-signout {
+      font-size: 10px;
+      padding: 5px 10px;
+      margin-left: 0;
+    }
+
+    /* Page titles */
+    .page-title { font-size: clamp(42px, 14vw, 64px); }
+    .page-subtitle { font-size: 13px; margin-bottom: 28px; }
+
+    /* Chips — bigger touch targets */
+    .chip { padding: 9px 14px; font-size: 11px; min-height: 40px; }
+    .dur-btn { padding: 10px 14px; font-size: 18px; min-height: 44px; }
+
+    /* Primary button */
+    .btn { min-height: 50px; font-size: 17px; }
+    .btn-secondary { min-height: 44px; }
+
+    /* Profile summary grid — single column */
+    .profile-grid { grid-template-columns: 1fr; gap: 12px; }
+
+    /* Auth card */
+    .auth-card { padding: 24px 18px; }
+
+    /* Timer bar — stack vertically on narrow screens */
+    .timer-bar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+      padding: 16px 18px;
+    }
+    .timer-num {
+      font-size: 72px;
+      text-align: center;
+      min-width: unset;
+      line-height: 1;
+    }
+    .timer-info { text-align: center; }
+    .timer-btn { padding: 12px; text-align: center; font-size: 15px; }
+
+    /* Workout header */
+    .workout-header { margin-bottom: 24px; }
+    .coach-note { font-size: 12px; padding: 12px 14px; }
+
+    /* Phase header wraps on mobile */
+    .phase-header { flex-wrap: wrap; gap: 8px; }
+    .phase-time { margin-left: 0; width: 100%; }
+
+    /* Exercise card — tighten right column */
+    .ex-card { padding: 12px 14px; gap: 0 10px; }
+    .ex-sets { font-size: 11px; }
+    .ex-equip { font-size: 9px; }
+    .ex-name { font-size: 13px; }
+
+    /* Splash modal */
+    .splash-modal { padding: 28px 20px 24px; }
+
+    /* History */
+    .history-wrap { padding: 24px 0 80px; }
+    .history-card { padding: 14px 16px; }
+    .history-card-title { font-size: 17px; }
+
+    /* Admin table scrolls */
+    .admin-table { font-size: 11px; }
+    .admin-table th, .admin-table td { padding: 8px 8px; }
+
+    /* Sections */
+    .btn-row { margin-top: 24px; }
+  }
 `;
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
