@@ -607,7 +607,9 @@ function Chip({ label, selected, onClick, accent }) {
 async function fetchExerciseData(name) {
   const res = await fetch(`/api/exercise?name=${encodeURIComponent(name)}`);
   const data = await res.json();
-  return Array.isArray(data) && data.length > 0 ? data[0] : null;
+  // New API returns a single object (or null on no match)
+  if (!data || Array.isArray(data)) return null;
+  return data;
 }
 
 function ExCard({ ex, idx }) {
