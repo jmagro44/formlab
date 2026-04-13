@@ -934,6 +934,15 @@ export default function TrainerApp() {
 
   const sessionComplete = session.duration && session.focus;
 
+  // ── PERSIST ACTIVE WORKOUT TO LOCALSTORAGE ──
+  // Save whenever workout or session config changes
+  useEffect(() => {
+    if (workout) {
+      localStorage.setItem("fl_workout", JSON.stringify(workout));
+      localStorage.setItem("fl_session", JSON.stringify(session));
+    }
+  }, [workout, session]);
+
   // ── AUTH ──
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: supaSession } }) => {
@@ -961,7 +970,20 @@ export default function TrainerApp() {
     if (data?.fitness_level) {
       setProfile(p => ({ ...p, fitnessLevel: data.fitness_level, goals: data.goals || [], equipment: data.equipment || [] }));
       setIsAdmin(data.is_admin || false);
-      setView("session");
+      // Restore active workout if one was in progress
+      try {
+        const savedWorkout = localStorage.getItem("fl_workout");
+        const savedSession = localStorage.getItem("fl_session");
+        if (savedWorkout) {
+          setWorkout(JSON.parse(savedWorkout));
+          if (savedSession) setSession(JSON.parse(savedSession));
+          setView("workout");
+        } else {
+          setView("session");
+        }
+      } catch {
+        setView("session");
+      }
     } else {
       setView("onboarding_1");
     }
@@ -1000,6 +1022,8 @@ export default function TrainerApp() {
   }
 
   async function handleSignOut() {
+    localStorage.removeItem("fl_workout");
+    localStorage.removeItem("fl_session");
     await supabase.auth.signOut();
     setProfile({ name: "", fitnessLevel: "", equipment: [], goals: [] });
     setSession(s => ({ ...s, notes: "", focus: "", style: "Mixed / Surprise me" }));
@@ -1521,6 +1545,9 @@ export default function TrainerApp() {
             workout={workout}
             sessionDuration={session.duration}
             onReset={() => {
+              localStorage.removeItem("fl_workout");
+              localStorage.removeItem("fl_session");
+              setWorkout(null);
               setSession(s => ({ ...s, notes: "", focus: "", style: "Mixed / Surprise me" }));
               setView("session");
             }}
