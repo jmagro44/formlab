@@ -604,7 +604,7 @@ const css = `
 
   /* Adjust app bottom padding when tab bar is visible */
   .app.has-tabs {
-    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 100px;
   }
 
   /* ── PROFILE VIEW ── */
@@ -757,7 +757,7 @@ const css = `
       padding: 0 16px;
     }
     .app.has-tabs {
-      padding-bottom: calc(68px + env(safe-area-inset-bottom, 16px));
+      padding-bottom: 100px;
     }
 
     /* Nav — logo only on mobile */
