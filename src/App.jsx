@@ -556,22 +556,96 @@ const css = `
     transition: all 0.15s; background: transparent; letter-spacing: 0.05em;
     margin-left: 8px;
   }
-  .nav-signout:hover { background: var(--surface); color: var(--text); border-color: var(--muted); }
-  .nav-admin {
-    font-family: 'DM Mono', monospace; font-size: 11px;
-    color: var(--accent); cursor: pointer; padding: 6px 14px;
-    border: 1px solid rgba(181,245,66,0.3); border-radius: var(--radius);
-    transition: all 0.15s; background: rgba(181,245,66,0.06); letter-spacing: 0.05em;
-    margin-left: 8px;
+  /* ── BOTTOM TAB BAR ── */
+  .tab-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(13,15,14,0.96);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    z-index: 150;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  .nav-admin:hover { background: rgba(181,245,66,0.12); }
-  .nav-history {
-    font-family: 'DM Mono', monospace; font-size: 11px;
-    color: var(--accent2); cursor: pointer; padding: 6px 14px;
-    background: transparent; border: 1px solid rgba(66,245,200,0.25);
-    border-radius: 4px; letter-spacing: 0.05em; margin-left: 8px;
+  .tab-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px 0 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
   }
-  .nav-history:hover { background: rgba(66,245,200,0.08); }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); }
+  .tab-btn svg { width: 22px; height: 22px; transition: transform 0.15s; }
+  .tab-btn.active svg { transform: scale(1.08); }
+  .tab-btn .tab-dot {
+    position: absolute;
+    top: 7px; right: calc(50% - 18px);
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* Adjust app bottom padding when tab bar is visible */
+  .app.has-tabs {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* ── PROFILE VIEW ── */
+  .profile-view { padding: 8px 0 40px; }
+  .profile-avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: linear-gradient(135deg, rgba(181,245,66,0.15), rgba(66,245,200,0.1));
+    border: 1px solid rgba(181,245,66,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif; font-size: 32px;
+    color: var(--accent); margin-bottom: 16px;
+  }
+  .profile-name { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 0.04em; color: var(--text); }
+  .profile-email { font-size: 13px; color: var(--muted); margin-top: 2px; margin-bottom: 28px; }
+  .profile-stat-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px; margin-bottom: 32px;
+  }
+  .profile-stat {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 12px; text-align: center;
+  }
+  .profile-stat-val {
+    font-family: 'Bebas Neue', sans-serif; font-size: 28px;
+    letter-spacing: 0.04em; color: var(--accent); line-height: 1;
+  }
+  .profile-stat-label {
+    font-family: 'DM Mono', monospace; font-size: 9px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin-top: 4px;
+  }
+  .profile-menu { display: flex; flex-direction: column; gap: 2px; }
+  .profile-menu-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+    cursor: pointer; transition: border-color 0.15s;
+    font-size: 14px; color: var(--text);
+  }
+  .profile-menu-item:hover { border-color: var(--muted); }
+  .profile-menu-item.danger { color: var(--warm); }
+  .profile-menu-item.danger:hover { border-color: rgba(245,167,66,0.4); }
+  .profile-menu-chevron { color: var(--muted); font-size: 12px; }
 
   /* ── HISTORY ── */
   .history-wrap { max-width: 640px; margin: 0 auto; padding: 40px 20px 80px; }
@@ -679,28 +753,17 @@ const css = `
   @media (max-width: 540px) {
     .app {
       padding: 0 16px;
-      padding-bottom: max(80px, env(safe-area-inset-bottom, 80px));
+    }
+    .app.has-tabs {
+      padding-bottom: calc(68px + env(safe-area-inset-bottom, 16px));
     }
 
-    /* Nav — compact on mobile */
+    /* Nav — logo only on mobile */
     .nav {
       padding: 14px 0 16px;
       margin-bottom: 24px;
-      flex-wrap: wrap;
-      gap: 8px;
     }
     .nav-logo { font-size: 22px; }
-    .nav > div {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: flex-end;
-    }
-    .nav-profile, .nav-history, .nav-admin, .nav-signout {
-      font-size: 10px;
-      padding: 5px 10px;
-      margin-left: 0;
-    }
 
     /* Page titles */
     .page-title { font-size: clamp(42px, 14vw, 64px); }
@@ -1469,34 +1532,15 @@ export default function TrainerApp() {
     );
   }
 
+  const mainViews = ["session", "workout", "history", "profile", "admin"];
+  const hasTabs = mainViews.includes(view);
+
   return (
     <>
       <style>{css}</style>
-      <div className="app">
+      <div className={`app${hasTabs ? " has-tabs" : ""}`}>
         <nav className="nav">
           <div className="nav-logo">Form<span>Lab</span></div>
-          <div style={{ display: "flex", alignItems: "center" }}>
-            {view !== "welcome" && view !== "onboarding_1" && view !== "onboarding_2" && view !== "onboarding_3" && view !== "auth" && (
-              <button className="nav-profile" onClick={() => setView("onboarding_1")}>
-                Edit Profile
-              </button>
-            )}
-            {(view === "session" || view === "workout" || view === "history") && (
-              <button className="nav-history" onClick={() => { fetchHistory(); setHistoryDetail(null); setView("history"); }}>
-                History
-              </button>
-            )}
-            {isAdmin && view !== "admin" && (
-              <button className="nav-admin" onClick={() => { fetchAdminUsers(); setView("admin"); }}>
-                Admin
-              </button>
-            )}
-            {(view === "admin" || view === "session" || view === "workout" || view === "history") && (
-              <button className="nav-signout" onClick={handleSignOut}>
-                Sign Out
-              </button>
-            )}
-          </div>
         </nav>
 
         {/* ── AUTH ── */}
@@ -1940,9 +1984,6 @@ export default function TrainerApp() {
                 </table>
               </div>
             )}
-            <div className="btn-row" style={{ marginTop: "40px", borderTop: "1px solid var(--border)", paddingTop: "32px" }}>
-              <button className="btn btn-secondary" onClick={() => setView("session")}>← Back</button>
-            </div>
           </div>
         )}
 
@@ -2001,14 +2042,126 @@ export default function TrainerApp() {
                     ))}
                   </div>
                 )}
-                {history.length > 0 && (
-                  <div className="btn-row" style={{ marginTop: "32px", borderTop: "1px solid var(--border)", paddingTop: "24px" }}>
-                    <button className="btn btn-secondary" onClick={() => setView("session")}>← Back to Session</button>
-                  </div>
-                )}
               </>
             )}
           </div>
+        )}
+
+        {/* ── PROFILE ── */}
+        {view === "profile" && (
+          <div className="profile-view fade-in">
+            <div className="section-label" style={{ marginBottom: "20px" }}>Your Account</div>
+            <div className="profile-avatar">
+              {(profile.name || user?.email || "?")[0].toUpperCase()}
+            </div>
+            <div className="profile-name">{profile.name || "Athlete"}</div>
+            <div className="profile-email">{user?.email}</div>
+
+            {/* Stats */}
+            <div className="profile-stat-row">
+              <div className="profile-stat">
+                <div className="profile-stat-val">{history.length}</div>
+                <div className="profile-stat-label">Sessions</div>
+              </div>
+              <div className="profile-stat">
+                <div className="profile-stat-val">
+                  {history.length > 0
+                    ? Math.round(history.reduce((a, w) => a + (w.duration_mins || 0), 0) / history.length)
+                    : "—"}
+                </div>
+                <div className="profile-stat-label">Avg Min</div>
+              </div>
+              <div className="profile-stat">
+                <div className="profile-stat-val">
+                  {history.filter(w => {
+                    const d = new Date(w.completed_at); const now = new Date();
+                    return d >= new Date(now.getFullYear(), now.getMonth(), 1);
+                  }).length}
+                </div>
+                <div className="profile-stat-label">This Mo.</div>
+              </div>
+            </div>
+
+            {/* Fitness summary */}
+            {profile.fitnessLevel && (
+              <div className="profile-card" style={{ marginBottom: "24px" }}>
+                <div className="profile-item-label" style={{ marginBottom: "12px" }}>Fitness Profile</div>
+                <div className="profile-grid">
+                  <div>
+                    <div className="profile-item-label">Level</div>
+                    <div className="profile-item-value">{profile.fitnessLevel}</div>
+                  </div>
+                  <div>
+                    <div className="profile-item-label">Equipment</div>
+                    <div className="profile-item-value">{profile.equipment.join(", ") || "None"}</div>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div className="profile-item-label">Goals</div>
+                    <div className="profile-item-value">{profile.goals.join(", ") || "None set"}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Menu */}
+            <div className="profile-menu">
+              <button className="profile-menu-item" onClick={() => setView("onboarding_1")}>
+                <span>Edit Fitness Profile</span>
+                <span className="profile-menu-chevron">›</span>
+              </button>
+              {isAdmin && (
+                <button className="profile-menu-item" onClick={() => { fetchAdminUsers(); setView("admin"); }}>
+                  <span>Admin Panel</span>
+                  <span className="profile-menu-chevron">›</span>
+                </button>
+              )}
+              <button className="profile-menu-item danger" onClick={handleSignOut}>
+                <span>Sign Out</span>
+                <span className="profile-menu-chevron">›</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── BOTTOM TAB BAR ── */}
+        {hasTabs && (
+          <nav className="tab-bar">
+            {/* Train */}
+            <button
+              className={`tab-btn${view === "session" || view === "workout" || view === "generating" ? " active" : ""}`}
+              onClick={() => setView(workout ? "workout" : "session")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
+              Train
+              {workout && view !== "workout" && <span className="tab-dot" />}
+            </button>
+
+            {/* History */}
+            <button
+              className={`tab-btn${view === "history" ? " active" : ""}`}
+              onClick={() => { fetchHistory(); setHistoryDetail(null); setView("history"); }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <polyline points="12 7 12 12 15 15" />
+              </svg>
+              History
+            </button>
+
+            {/* Profile */}
+            <button
+              className={`tab-btn${view === "profile" || view === "admin" ? " active" : ""}`}
+              onClick={() => { fetchHistory(); setView("profile"); }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+              </svg>
+              Profile
+            </button>
+          </nav>
         )}
 
       </div>
